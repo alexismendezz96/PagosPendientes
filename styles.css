@@ -14,15 +14,6 @@ main { max-width: 860px; margin: 0 auto; padding: 1rem; }
 .card h2 { margin: 0 0 .75rem; font-size: 1.05rem; }
 .hero { text-align: center; padding: 2.5rem 1.25rem; }
 .hero p { color: var(--muted); max-width: 420px; margin: .5rem auto 1.5rem; }
-.hero .login-config { max-width: 480px; margin: 0 auto; text-align: left; }
-.hero .login-config p { margin: .5rem 0 0; }
-.help { margin-top: .75rem; font-size: .875rem; border: 1px solid var(--border); border-radius: 8px; padding: .5rem .75rem; background: var(--bg); }
-.help summary { cursor: pointer; font-weight: 500; color: var(--primary-dark); }
-.help[open] ol { animation: fadeUp .25s ease both; }
-.help ol { padding-left: 1.2rem; margin: .5rem 0; }
-.help li { margin: .35rem 0; }
-.help code { background: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 0 .3rem; word-break: break-all; }
-.login-config a { color: var(--primary-dark); }
 label { display: block; font-size: .875rem; font-weight: 500; margin: .75rem 0 .25rem; }
 input[type=text], input[type=number], input[type=date] {
   width: 100%; font: inherit; padding: .6rem .75rem; border: 1px solid var(--border); border-radius: 8px; background: #fff;

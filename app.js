@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const { GOOGLE_CLIENT_ID = '', DEFAULT_FILE_NAME } = window.APP_CONFIG;
+  const { GOOGLE_CLIENT_ID, DEFAULT_FILE_NAME } = window.APP_CONFIG;
   // drive.file: acceso únicamente a los archivos creados por esta app.
   const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
   const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -25,17 +25,13 @@
       const s = JSON.parse(sessionStorage.getItem(SESSION_KEY));
       if (!s || typeof s !== 'object') return {};
       if (s.token && s.expiresAt > Date.now()) return s;
-      return typeof s.clientId === 'string' ? { clientId: s.clientId } : {};
+      return {};
     } catch (e) {
       return {};
     }
   }
   function saveSession() { sessionStorage.setItem(SESSION_KEY, JSON.stringify(session)); }
   function clearSession() { session = {}; sessionStorage.removeItem(SESSION_KEY); }
-  function expireSession() {
-    session = session.clientId ? { clientId: session.clientId } : {};
-    saveSession();
-  }
 
   // ---------- Utilidades UI ----------
   function esc(s) {
@@ -64,7 +60,7 @@
   async function api(url, opts = {}) {
     const r = await fetch(url, { ...opts, headers: { Authorization: 'Bearer ' + session.token, ...(opts.headers || {}) } });
     if (r.status === 401) {
-      expireSession();
+      clearSession();
       showScreen({ login: true });
       throw new Error('La sesión expiró. Inicia sesión nuevamente.');
     }
@@ -126,7 +122,7 @@
       await saveFile();
     }
     saveSession();
-    showScreen({ app: true, config: true });
+    showScreen({ app: true });
     render();
     toast('Archivo listo en Drive.', true);
   }
@@ -135,7 +131,7 @@
   function onTokenResponse(resp) {
     if (resp.error) return toast('No se pudo iniciar sesión con Google.');
     if (!(resp.scope || '').includes('drive.file')) return toast('Se requiere el permiso de Drive para continuar.');
-    session = { clientId: session.clientId, token: resp.access_token, expiresAt: Date.now() + (Number(resp.expires_in) - 30) * 1000 };
+    session = { token: resp.access_token, expiresAt: Date.now() + (Number(resp.expires_in) - 30) * 1000 };
     return enterAfterLogin();
   }
   async function enterAfterLogin() {
@@ -150,30 +146,22 @@
     } catch (e) { toast(e.message); }
   }
   function login() {
-    const clientId = GOOGLE_CLIENT_ID || $('clientId').value.trim();
-    if (!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(clientId)) {
-      if (!GOOGLE_CLIENT_ID) $('clientId').focus();
-      return toast('Introduce un ID de cliente OAuth válido, no el secreto de cliente.');
-    }
     if (!window.google || !google.accounts || !google.accounts.oauth2) {
       return toast('No se pudo cargar Google. Comprueba tu conexión e inténtalo de nuevo.');
     }
-    session = { clientId };
-    saveSession();
     try {
       const tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: clientId, scope: SCOPES, callback: onTokenResponse,
+        client_id: GOOGLE_CLIENT_ID, scope: SCOPES, callback: onTokenResponse,
         error_callback: () => toast('No se pudo abrir la ventana de Google o fue cerrada. Inténtalo de nuevo.'),
       });
       tokenClient.requestAccessToken();
     } catch (e) {
-      toast('No se pudo iniciar sesión con Google. Comprueba el ID de cliente.');
+      toast('No se pudo iniciar sesión con Google.');
     }
   }
   function logout() {
     if (session.token && window.google) google.accounts.oauth2.revoke(session.token);
     clearSession();
-    $('clientId').value = '';
     gastos = [];
     pendientes = [];
     showScreen({ login: true });
@@ -232,6 +220,7 @@
   // ---------- Eventos ----------
   $('loginForm').onsubmit = (ev) => { ev.preventDefault(); login(); };
   $('btnLogout').onclick = logout;
+  $('btnSettings').onclick = () => show('config', $('config').classList.contains('hidden'));
   $('configForm').onsubmit = (ev) => {
     ev.preventDefault();
     withBusy($('btnSave'), async () => openWorkbook(normalizeFileName($('fileName').value)));
@@ -248,9 +237,6 @@
 
   // ---------- Inicio ----------
   $('fecha').value = today();
-  show('clientIdBox', !GOOGLE_CLIENT_ID);
-  $('clientId').value = session.clientId || '';
-  $('originHint').textContent = window.location.origin;
   if (session.token) enterAfterLogin();
   else showScreen({ login: true });
 })();
