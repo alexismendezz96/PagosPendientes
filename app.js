@@ -145,14 +145,20 @@
       if (session.fileName) await openWorkbook(session.fileName);
     } catch (e) { toast(e.message); }
   }
+  function onPopupError(error) {
+    if (error && error.type === 'popup_failed_to_open') {
+      return toast('El navegador bloqueó la ventana de Google. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.');
+    }
+    toast('La ventana de Google se cerró antes de completar el inicio de sesión.');
+  }
   function login() {
     if (!window.google || !google.accounts || !google.accounts.oauth2) {
-      return toast('No se pudo cargar Google. Comprueba tu conexión e inténtalo de nuevo.');
+      return toast('No se pudo cargar Google. Revisa tu conexión y desactiva bloqueadores de anuncios o rastreadores para este sitio.');
     }
     try {
       const tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID, scope: SCOPES, callback: onTokenResponse,
-        error_callback: () => toast('No se pudo abrir la ventana de Google o fue cerrada. Inténtalo de nuevo.'),
+        error_callback: onPopupError,
       });
       tokenClient.requestAccessToken();
     } catch (e) {

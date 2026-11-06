@@ -77,6 +77,8 @@ test('rechaza la sesión si falta el permiso de Drive', async () => {
 test('muestra el error si se cierra la ventana de Google', () => {
   const app = setup();
   startLogin(app);
-  app.tokenClients[0].options.error_callback();
-  assert.match(app.element('msg').textContent, /ventana de Google/);
+  app.tokenClients[0].options.error_callback({ type: 'popup_closed' });
+  assert.match(app.element('msg').textContent, /se cerró/);
+  app.tokenClients[0].options.error_callback({ type: 'popup_failed_to_open' });
+  assert.match(app.element('msg').textContent, /bloqueó la ventana/);
 });
