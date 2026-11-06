@@ -10,6 +10,7 @@
   const SESSION_KEY = 'pp_session';
   const TOAST_MS = 4000;
   const MAX_FILE_NAME = 100;
+  const REQUEST_TIMEOUT_MS = 20000;
 
   const $ = (id) => document.getElementById(id);
   const today = () => new Date().toISOString().slice(0, 10);
@@ -59,7 +60,7 @@
 
   // ---------- Google Drive ----------
   async function api(url, opts = {}) {
-    const r = await fetch(url, { ...opts, headers: { Authorization: 'Bearer ' + session.token, ...(opts.headers || {}) } });
+    const r = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS), ...opts, headers: { Authorization: 'Bearer ' + session.token, ...(opts.headers || {}) } });
     if (r.status === 401) {
       clearSession();
       showScreen({ login: true });

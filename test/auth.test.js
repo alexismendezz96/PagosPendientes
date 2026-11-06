@@ -13,7 +13,7 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
   let revoked;
   const element = (id) => {
     if (!elements.has(id)) {
-      const classes = new Set(['login', 'config', 'app', 'userBox'].includes(id) ? ['hidden'] : []);
+      const classes = new Set(['loading', 'login', 'config', 'app', 'userBox'].includes(id) ? ['hidden'] : []);
       elements.set(id, {
         value: '', textContent: '', className: '',
         classList: {
