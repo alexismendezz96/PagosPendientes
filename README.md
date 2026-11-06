@@ -10,9 +10,9 @@ El ID de cliente OAuth es público y se define en `config.js`; los usuarios no l
 1. Pulsa **Iniciar sesión con Google** y acepta los permisos.
 2. En **Configuración de la cuenta** edita el nombre del archivo (por defecto `PagosPendientes.xlsx`); se crea si no existe. Puedes volver con el botón **Configuración**.
 3. En el resumen consulta los pendientes por persona y pulsa un nombre para ver solo sus pagos pendientes. Usa **Ver pendientes** para marcar cobros o **Agregar nuevo pago** para registrar un gasto y dividirlo uniforme o manualmente.
-4. Vuelve al resumen desde cada sección. **Configuración** permite cambiar el archivo y regresar sin modificarlo.
+4. Vuelve al resumen desde cada sección. **Configuración** permite cambiar el archivo o regresar a la pantalla anterior sin modificarlo; los filtros y los datos del formulario se conservan.
 
-El detalle muestra pendientes por defecto; puedes filtrar por estado, rango de fechas del gasto y nombre de persona. El botón de tema permite alternar entre claro y oscuro; la elección se recuerda en el navegador.
+La ventana de pagos pendientes muestra pendientes por defecto; puedes filtrar por estado, rango de fechas del gasto y nombre de persona. El botón de tema permite alternar entre claro y oscuro; la elección se recuerda en el navegador.
 
 Al registrar un gasto, agrega un campo por persona. **Guardar persona** añade el nombre a las sugerencias para próximos gastos en ese navegador y cuenta de Google; no se sincroniza con otros dispositivos. Después de guardar el gasto, elige entre volver al resumen o agregar otro registro con el formulario limpio.
 

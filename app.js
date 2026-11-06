@@ -30,6 +30,7 @@
   let savedPeople = [];
   let personRows = [''];
   let personAmounts = [''];
+  let currentView = 'summary';
 
   // ---------- Sesión (sessionStorage: se borra al cerrar la pestaña) ----------
   function loadSession() {
@@ -102,6 +103,7 @@
     show('btnConfigBack', config && workbookLoaded);
   }
   function showAppView(view) {
+    currentView = view;
     for (const id of ['summary', 'newExpense', 'details']) show(id, id === view);
     showScreen({ app: true });
   }
@@ -401,9 +403,14 @@
   };
   $('btnSettings').onclick = () => {
     $('fileName').value = session.fileName || DEFAULT_FILE_NAME;
+    $('btnConfigBack').textContent = {
+      summary: 'Volver al resumen',
+      newExpense: 'Volver al nuevo pago',
+      details: 'Volver a pendientes',
+    }[currentView];
     showScreen({ config: true });
   };
-  $('btnConfigBack').onclick = () => { if (workbookLoaded) showAppView('summary'); };
+  $('btnConfigBack').onclick = () => { if (workbookLoaded) showAppView(currentView); };
   $('btnDetails').onclick = () => openDetails();
   function openPersonDetails(target) {
     const row = target.closest('[data-person-index]');
