@@ -121,6 +121,7 @@
     currentView = view;
     for (const id of ['summary', 'newExpense', 'details', 'managePeople']) show(id, id === view);
     showScreen({ app: true });
+    if (view === 'summary') render();
   }
   function showUserPhoto(picture) {
     const photo = $('userPhoto');
@@ -500,6 +501,7 @@
     resetPersonEditor();
     renderSavedPeople();
     renderPersonManager();
+    render();
     toast('Persona eliminada de la lista guardada.', true);
   }
   function resetExpense() {
@@ -550,15 +552,28 @@
   }
   function render() {
     const by = Logic.pendingByPerson(pendientes);
+    const gastoById = Object.fromEntries(gastos.map((g) => [g.ID, g]));
+    const cutoff = Logic.monthsBefore(new Date(), 1);
+    const saved = new Set(savedPeople.map(personKey));
+    const oldPeople = new Set(pendientes.filter((p) => Logic.oldPending(p, gastoById[p.ID] || {}, cutoff)).map((p) => personKey(p.Persona)));
     $('pendingTotal').textContent = Object.values(by).reduce((sum, amount) => Logic.round2(sum + amount), 0).toFixed(2);
     show('largeDataWarning', pendientes.length >= LARGE_RECORD_COUNT);
     $('byPerson').innerHTML = '<thead><tr><th>Persona</th><th>Pendiente</th></tr></thead><tbody>' +
-      (Object.entries(by).map(([p, m], i) => `<tr class="person-row-link" role="link" tabindex="0" data-person-index="${i}" aria-label="Ver pendientes de ${esc(p)}"><td>${esc(p)}</td><td>${m.toFixed(2)}</td></tr>`).join('') ||
+      (Object.entries(by).map(([p, m], i) => {
+        const registered = saved.has(personKey(p));
+        const old = oldPeople.has(personKey(p));
+        const status = registered ? 'Persona guardada' : 'Persona no guardada';
+        const icon = registered ? '✓' : '!';
+        return `<tr class="person-row-link" role="link" tabindex="0" data-person-index="${i}" aria-label="Ver pendientes de ${esc(p)}. ${status}${old ? '. Tiene pendientes de al menos un mes' : ''}"><td>` +
+          `<span class="person-indicator ${registered ? 'person-saved' : 'person-unsaved'}" title="${status}" aria-hidden="true">${icon}</span> ${esc(p)}` +
+          `${old ? ' <span class="badge badge-old">Pendiente de al menos 1 mes</span>' : ''}</td><td>${m.toFixed(2)}</td></tr>`;
+      }).join('') ||
         '<tr><td colspan="2">Sin pendientes 🎉</td></tr>') + '</tbody>';
     renderDetails();
   }
   function renderDetails() {
     const gastoById = Object.fromEntries(gastos.map((g) => [g.ID, g]));
+    const cutoff = Logic.monthsBefore(new Date(), 1);
     const filters = { status: $('filterStatus').value, from: $('filterFrom').value, to: $('filterTo').value,
       collectedFrom: $('filterCollectedFrom').value, collectedTo: $('filterCollectedTo').value,
       person: $('filterPerson').value, exactPerson };
@@ -576,8 +591,9 @@
         const action = p.Estado === 'Pendiente'
           ? `<button class="btn btn-secondary btn-small" data-i="${i}" type="button">Marcar cobrado</button>`
           : p.Estado === 'Cobrado' ? `<button class="btn btn-secondary btn-small" data-undo="${i}" type="button">Revertir cobro</button>` : '';
-        return `<tr><td>${esc(g.Fecha || '')}</td><td>${esc(g.Descripcion || '')}</td><td>${esc(p.Persona)}</td>` +
-          `<td>${Number(p.Monto).toFixed(2)}</td><td>${badge(p.Estado)}</td><td>${esc(p.FechaCobro || '')}</td><td>${action}</td></tr>`;
+        const old = Logic.oldPending(p, g, cutoff);
+        return `<tr${old ? ' class="old-payment"' : ''}><td>${esc(g.Fecha || '')}</td><td>${esc(g.Descripcion || '')}</td><td>${esc(p.Persona)}</td>` +
+          `<td>${Number(p.Monto).toFixed(2)}</td><td>${badge(p.Estado)}${old ? ' <span class="badge badge-old">Al menos 1 mes pendiente</span>' : ''}</td><td>${esc(p.FechaCobro || '')}</td><td>${action}</td></tr>`;
       }).join('') || '<tr><td colspan="7">No hay pagos que coincidan con los filtros.</td></tr>') + '</tbody>';
   }
   function openDetails(person = null) {

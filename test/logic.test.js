@@ -60,3 +60,15 @@ test('la limpieza usa tres meses de calendario y solo fechas de cobro válidas a
     { Estado: 'Pendiente', FechaCobro: '2026-01-01' },
   ]) assert.strictEqual(L.oldCollected(payment, cutoff), false);
 });
+
+test('pendiente antiguo cuenta un mes calendario e ignora cobrados y fechas inválidas', () => {
+  const cutoff = L.monthsBefore(new Date(2026, 2, 31), 1);
+  assert.strictEqual(cutoff, '2026-02-28');
+  assert.strictEqual(L.monthsBefore(new Date(2024, 2, 31), 1), '2024-02-29');
+  assert.strictEqual(L.monthsBefore(new Date(2026, 0, 15), 1), '2025-12-15');
+  assert.strictEqual(L.oldPending({ Estado: 'Pendiente' }, { Fecha: '2026-02-28' }, cutoff), true);
+  assert.strictEqual(L.oldPending({ Estado: 'Pendiente' }, { Fecha: '2026-03-01' }, cutoff), false);
+  assert.strictEqual(L.oldPending({ Estado: 'Cobrado' }, { Fecha: '2026-01-01' }, cutoff), false);
+  assert.strictEqual(L.oldPending({ Estado: 'Pendiente' }, { Fecha: '2026-02-30' }, cutoff), false);
+  assert.strictEqual(L.oldPending({ Estado: 'Pendiente' }, {}, cutoff), false);
+});

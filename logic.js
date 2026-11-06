@@ -5,13 +5,15 @@
   const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
   const personKey = (name) => String(name || '').trim().normalize('NFC').toLowerCase();
 
-  function threeMonthsBefore(date) {
+  function monthsBefore(date, months) {
     const year = date.getFullYear();
-    const month = date.getMonth() - 3;
+    const month = date.getMonth() - months;
     const lastDay = new Date(year, month + 1, 0).getDate();
     const cutoff = new Date(year, month, Math.min(date.getDate(), lastDay));
     return [cutoff.getFullYear(), String(cutoff.getMonth() + 1).padStart(2, '0'), String(cutoff.getDate()).padStart(2, '0')].join('-');
   }
+
+  const threeMonthsBefore = (date) => monthsBefore(date, 3);
 
   function validIsoDate(value) {
     if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -24,6 +26,10 @@
 
   function oldCollected(payment, cutoff) {
     return payment.Estado === 'Cobrado' && validIsoDate(payment.FechaCobro) && payment.FechaCobro < cutoff;
+  }
+
+  function oldPending(payment, expense, cutoff) {
+    return payment.Estado === 'Pendiente' && validIsoDate(expense.Fecha) && expense.Fecha <= cutoff;
   }
 
   // Divide el total en partes iguales (en centavos) entre las personas; el resto se reparte de a 1 centavo.
@@ -95,5 +101,5 @@
       (exactPerson !== null ? personKey(name) === personKey(exactPerson) : personKey(name).includes(query));
   }
 
-  return { splitEqual, manualSplit, buildExpense, pendingByPerson, markCollected, matchesPayment, round2, personKey, threeMonthsBefore, oldCollected };
+  return { splitEqual, manualSplit, buildExpense, pendingByPerson, markCollected, matchesPayment, round2, personKey, monthsBefore, threeMonthsBefore, oldCollected, oldPending };
 });

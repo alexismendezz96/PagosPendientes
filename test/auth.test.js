@@ -845,6 +845,65 @@ test('el total del resumen incluye solo pendientes y conserva los centavos', asy
   assert.equal(app.element('pendingTotal').textContent, '0.30');
 });
 
+test('identifica personas guardadas y pendientes antiguos en resumen y detalle', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+    { ID: '1', Fecha: '2026-10-06', Descripcion: 'Un mes' },
+    { ID: '2', Fecha: '2026-10-07', Descripcion: 'Reciente' },
+    { ID: '3', Fecha: '2026-01-01', Descripcion: 'Cobrado' },
+    { ID: '4', Fecha: '2026-02-30', Descripcion: 'Inválido' },
+  ]), 'Gastos');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+    { ID: '1', Persona: 'ANA', Monto: 5, Estado: 'Pendiente' },
+    { ID: '2', Persona: 'ana', Monto: 2, Estado: 'Pendiente' },
+    { ID: '2', Persona: 'Luis', Monto: 4, Estado: 'Pendiente' },
+    { ID: '3', Persona: 'Luis', Monto: 2, Estado: 'Cobrado' },
+    { ID: '4', Persona: 'Luis', Monto: 1, Estado: 'Pendiente' },
+  ]), 'Pendientes');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ Nombre: 'Ana' }]), 'Personas');
+  let bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  const fetch = async (url, opts = {}) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: '123' }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: 'id' }] }) };
+    if (opts.method === 'PATCH') { bytes = opts.body; return { ok: true }; }
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  class FixedDate extends Date {
+    constructor(...args) { super(...(args.length ? args : [2026, 10, 6])); }
+  }
+  const app = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic, Date: FixedDate });
+  await flush();
+  const summary = app.element('byPerson').innerHTML;
+  assert.match(summary, /Ver pendientes de ANA\. Persona guardada\. Tiene pendientes de al menos un mes/);
+  assert.match(summary, /person-indicator person-saved/);
+  assert.match(summary, /Ver pendientes de Luis\. Persona no guardada/);
+  assert.match(summary, /person-indicator person-unsaved/);
+  assert.equal((summary.match(/badge-old/g) || []).length, 1);
+  app.element('btnDetails').onclick();
+  app.element('filterStatus').value = '';
+  app.element('filterStatus').oninput();
+  const details = app.element('detail').innerHTML;
+  assert.equal((details.match(/class="old-payment"/g) || []).length, 1);
+  assert.match(details, /class="old-payment"[^]*Un mes[^]*Al menos 1 mes pendiente/);
+  assert.match(details, /<tr><td>2026-10-07<\/td><td>Reciente/);
+  app.element('filterStatus').value = 'Pendiente';
+  app.element('filterStatus').oninput();
+  app.element('detail').onclick({ target: { dataset: { i: '0' } } });
+  await flush();
+  assert.doesNotMatch(app.element('byPerson').innerHTML, /badge-old/);
+  assert.doesNotMatch(app.element('detail').innerHTML, /old-payment/);
+  app.element('btnManagePeople').onclick();
+  app.element('personList').onclick({ target: { dataset: { deletePerson: '0' } } });
+  await flush();
+  assert.match(app.element('byPerson').innerHTML, /Ver pendientes de ana\. Persona no guardada/);
+  app.element('personName').value = 'LUIS';
+  app.element('personForm').onsubmit({ preventDefault() {} });
+  await flush();
+  assert.match(app.element('byPerson').innerHTML, /Ver pendientes de Luis\. Persona guardada/);
+});
+
 test('administra personas en Excel, evita duplicados y conserva pagos al eliminar', async () => {
   const XLSX = require('@e965/xlsx');
   const Logic = require('../logic');

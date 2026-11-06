@@ -2,6 +2,8 @@
   --primary: #1a73e8; --primary-dark: #1557b0; --bg: #f4f6fb; --card: #fff;
   --text: #1f2937; --muted: #6b7280; --border: #e5e7eb; --ok: #15803d; --err: #b91c1c;
   --hover: #f9fafb;
+  --old-bg: #fef2f2; --old-hover: #fee2e2; --old-text: #991b1b;
+  --saved-icon: #15803d; --unsaved-icon: #c2410c;
   --radius: 12px; --shadow: 0 1px 3px rgba(16, 24, 40, .08), 0 4px 16px rgba(16, 24, 40, .06);
   color-scheme: light;
 }
@@ -9,6 +11,8 @@
   --primary: #3b82f6; --primary-dark: #2563eb; --bg: #111827; --card: #1f2937;
   --text: #f3f4f6; --muted: #c1c9d5; --border: #4b5563; --ok: #166534; --err: #b91c1c;
   --hover: #374151; --shadow: 0 4px 16px rgba(0, 0, 0, .25);
+  --old-bg: #4a1d22; --old-hover: #62272d; --old-text: #fecaca;
+  --saved-icon: #4ade80; --unsaved-icon: #fdba74;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -66,6 +70,12 @@ td, th { border-bottom: 1px solid var(--border); padding: .55rem .5rem; text-ali
 tbody tr { transition: background .15s; } tbody tr:hover { background: var(--hover); }
 .person-row-link { cursor: pointer; }
 .person-row-link:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.person-indicator { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; border: 2px solid currentColor; border-radius: 50%; font-size: .75rem; font-weight: 700; line-height: 1; }
+.person-saved { color: var(--saved-icon); }
+.person-unsaved { color: var(--unsaved-icon); }
+.old-payment, .old-payment .btn-secondary { background: var(--old-bg); }
+.old-payment:hover, .old-payment .btn-secondary:hover { background: var(--old-hover); }
+.badge-old { display: inline-block; background: var(--old-bg); color: var(--old-text); border: 1px solid currentColor; }
 .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem .75rem; margin-bottom: 1rem; }
 .pagination { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-top: 1rem; font-size: .85rem; }
 .person-row { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
