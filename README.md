@@ -12,7 +12,7 @@ El ID de cliente OAuth es público y se define en `config.js`; los usuarios no l
 3. En el resumen consulta el total pendiente y los importes por persona; pulsa una fila para ver solo sus pagos pendientes. Usa **Ver pendientes** para marcar cobros o **Agregar nuevo pago** para registrar un gasto y dividirlo uniforme o manualmente.
 4. Vuelve al resumen desde cada sección. **Configuración** permite cambiar el archivo o regresar a la pantalla anterior sin modificarlo; los filtros y los datos del formulario se conservan.
 
-La ventana de pagos pendientes muestra pendientes por defecto; puedes filtrar por estado, rango de fechas del gasto y nombre de persona. El filtro de persona sugiere nombres guardados en el Excel, pero también permite buscar cualquier nombre. El botón de tema permite alternar entre claro y oscuro; la elección se recuerda en el navegador.
+La ventana de pagos pendientes muestra pendientes por defecto; puedes filtrar por estado, rango de fechas del gasto y nombre de persona. El filtro de persona sugiere solo nombres guardados en el Excel, aunque también permite buscar cualquier nombre; el navegador no ofrece sus propias sugerencias en los demás campos. El total mostrado se actualiza según los filtros activos. El botón de tema permite alternar entre claro y oscuro; la elección se recuerda en el navegador.
 
 Las acciones generales están dentro de cada pantalla, debajo del título y antes del contenido, y permanecen visibles al desplazarse. Las acciones de cada pago permanecen junto a su registro.
 

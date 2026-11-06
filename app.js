@@ -331,7 +331,7 @@
   function renderPeople() {
     $('peopleRows').innerHTML = personRows.map((name, i) =>
       `<div class="person-row"><label class="sr-only" for="person-${i}">Persona ${i + 1}</label>` +
-      `<input id="person-${i}" type="text" maxlength="120" list="savedPeople" value="${esc(name)}" placeholder="Nombre de la persona" data-person="${i}">` +
+      `<input id="person-${i}" type="text" maxlength="120" list="savedPeople" autocomplete="off" value="${esc(name)}" placeholder="Nombre de la persona" data-person="${i}">` +
       `<button id="save-person-${i}" class="btn btn-secondary${canSavePerson(name) ? '' : ' hidden'}" type="button" data-save-person="${i}">Guardar persona</button>` +
       (personRows.length > 1 ? `<button class="btn btn-secondary btn-icon" type="button" data-remove-person="${i}" title="Eliminar persona" aria-label="Eliminar persona">×</button>` : '') +
       '</div>').join('');
@@ -404,7 +404,7 @@
   }
   function renderManual() {
     $('manual').innerHTML = personRows.map((p, i) => p.trim() ?
-      `<label>${esc(p.trim())} <input type="number" step="0.01" min="0" data-i="${i}" value="${esc(personAmounts[i])}"></label>` : '').join('');
+      `<label>${esc(p.trim())} <input type="number" step="0.01" min="0" autocomplete="off" data-i="${i}" value="${esc(personAmounts[i])}"></label>` : '').join('');
   }
   function badge(estado) {
     return `<span class="badge ${estado === 'Pendiente' ? 'badge-pending' : 'badge-done'}">${esc(estado)}</span>`;
@@ -423,6 +423,7 @@
       person: $('filterPerson').value, exactPerson };
     const rows = pendientes.map((p, i) => ({ p, i, gasto: gastoById[p.ID] || {} }))
       .filter(({ p, gasto }) => Logic.matchesPayment(p, gasto, filters));
+    $('detailTotal').textContent = rows.reduce((sum, { p }) => Logic.round2(sum + Number(p.Monto)), 0).toFixed(2);
     $('detail').innerHTML = '<thead><tr><th>Fecha</th><th>Gasto</th><th>Persona</th><th>Monto</th><th>Estado</th><th></th></tr></thead><tbody>' +
       (rows.map(({ p, i, gasto: g }) => {
         const action = p.Estado === 'Pendiente'
