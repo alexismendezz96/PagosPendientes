@@ -13,6 +13,7 @@
   <div class="topbar-inner">
     <h1>💸 Pagos Pendientes</h1>
     <div id="userBox" class="user-box hidden">
+      <img id="userPhoto" class="user-photo hidden" alt="" referrerpolicy="no-referrer">
       <span id="userEmail"></span>
       <button id="btnSettings" class="btn btn-secondary btn-small" type="button">Configuración</button>
       <button id="btnLogout" class="btn btn-secondary btn-small" type="button">Cerrar sesión</button>
@@ -36,17 +37,31 @@
 
   <section id="config" class="card hidden">
     <h2>Configuración de la cuenta</h2>
+    <p class="section-description">Elige el archivo de Excel que usarás para guardar tus gastos.</p>
     <form id="configForm" novalidate>
       <label for="fileName">Nombre del archivo Excel en Drive</label>
       <input type="text" id="fileName" maxlength="100" autocomplete="off">
       <p class="hint">Si no existe, se crea automáticamente. Solo se accede a archivos creados por esta app (permiso mínimo <em>drive.file</em>).</p>
-      <button id="btnSave" class="btn" type="submit">Guardar y abrir</button>
+      <div class="actions">
+        <button id="btnSave" class="btn" type="submit">Guardar y abrir</button>
+        <button id="btnConfigBack" class="btn btn-secondary hidden" type="button">Volver al resumen</button>
+      </div>
     </form>
   </section>
 
   <section id="app" class="hidden">
-    <div class="card">
-      <h2>Nuevo gasto</h2>
+    <section id="summary" class="card hidden">
+      <h2>Resumen de pendientes</h2>
+      <p class="section-description">Consulta cuánto está pendiente por persona.</p>
+      <div class="table-wrap"><table id="byPerson"></table></div>
+      <div class="actions">
+        <button id="btnDetails" class="btn" type="button">Ver pendientes</button>
+        <button id="btnNewExpense" class="btn btn-secondary" type="button">Agregar nuevo pago</button>
+      </div>
+    </section>
+
+    <section id="newExpense" class="card hidden">
+      <h2>Agregar nuevo pago</h2>
       <label for="desc">Descripción</label>
       <input type="text" id="desc" maxlength="120" placeholder="Compra de almuerzo">
       <div class="row">
@@ -59,23 +74,23 @@
       <label class="choice"><input type="radio" name="mode" value="manual"> Montos manuales</label>
       <div id="manual" class="hidden"></div>
       <label class="choice"><input type="checkbox" id="cobrado"> Registrar como ya cobrado</label>
-      <button id="btnAdd" class="btn" type="button">Guardar gasto</button>
-    </div>
-
-    <div class="card">
-      <h2>Pendiente por persona</h2>
-      <div class="table-wrap"><table id="byPerson"></table></div>
-    </div>
-    <div class="card">
-      <h2>Detalle</h2>
+      <div class="actions">
+        <button id="btnAdd" class="btn" type="button">Guardar gasto</button>
+        <button id="btnExpenseBack" class="btn btn-secondary" type="button">Volver al resumen</button>
+      </div>
+    </section>
+    <section id="details" class="card hidden">
+      <h2>Detalle de pagos</h2>
+      <p class="section-description">Revisa los pagos y marca los pendientes como cobrados.</p>
       <div class="table-wrap"><table id="detail"></table></div>
-    </div>
+      <button id="btnDetailsBack" class="btn btn-secondary" type="button">Volver al resumen</button>
+    </section>
   </section>
 </main>
 
 <footer class="site-footer">
   <span>Pagos Pendientes</span>
-  <span>Versión 1.0.5</span>
+  <span>Versión 1.1.0</span>
 </footer>
 
 <div id="msg" class="toast hidden" role="status" aria-live="polite"></div>

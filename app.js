@@ -8,6 +8,7 @@
   const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
   const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
   const SESSION_KEY = 'pp_session';
+  const FILE_KEY_PREFIX = 'pp_file_';
   const TOAST_MS = 4000;
   const MAX_FILE_NAME = 100;
   const REQUEST_TIMEOUT_MS = 20000;
@@ -18,6 +19,7 @@
   let session = loadSession();
   let gastos = [];
   let pendientes = [];
+  let workbookLoaded = false;
   let toastTimer = null;
 
   // ---------- Sesión (sessionStorage: se borra al cerrar la pestaña) ----------
@@ -32,7 +34,37 @@
     }
   }
   function saveSession() { sessionStorage.setItem(SESSION_KEY, JSON.stringify(session)); }
-  function clearSession() { session = {}; sessionStorage.removeItem(SESSION_KEY); }
+  function filePreferenceKey() {
+    return session.googleSub ? FILE_KEY_PREFIX + session.googleSub : null;
+  }
+  function readFilePreference() {
+    const key = filePreferenceKey();
+    if (!key) return '';
+    try {
+      return localStorage.getItem(key) || '';
+    } catch (e) {
+      toast('No se pudo recuperar el archivo guardado en este navegador.');
+      return '';
+    }
+  }
+  function saveFilePreference(fileName) {
+    const key = filePreferenceKey();
+    if (!key) return false;
+    try {
+      localStorage.setItem(key, fileName);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+  function clearSession() {
+    session = {};
+    workbookLoaded = false;
+    sessionStorage.removeItem(SESSION_KEY);
+    $('userEmail').textContent = '';
+    $('userPhoto').removeAttribute('src');
+    show('userPhoto', false);
+  }
 
   // ---------- Utilidades UI ----------
   function esc(s) {
@@ -52,6 +84,26 @@
     show('config', config);
     show('app', app);
     show('userBox', !login && !loading);
+    show('btnConfigBack', config && workbookLoaded);
+  }
+  function showAppView(view) {
+    for (const id of ['summary', 'newExpense', 'details']) show(id, id === view);
+    showScreen({ app: true });
+  }
+  function showUserPhoto(picture) {
+    const photo = $('userPhoto');
+    photo.removeAttribute('src');
+    show('userPhoto', false);
+    if (typeof picture !== 'string') return;
+    try {
+      const url = new URL(picture);
+      if (url.protocol !== 'https:' || url.username || url.password || url.port ||
+          !url.hostname.endsWith('.googleusercontent.com')) return;
+      photo.src = url.href;
+      show('userPhoto', true);
+    } catch (e) {
+      return;
+    }
   }
   async function withBusy(button, task) {
     button.disabled = true;
@@ -121,20 +173,33 @@
   // Abre (o crea si no existe) el archivo configurado y muestra la app.
   async function openWorkbook(fileName) {
     requireXlsx();
-    session.fileName = fileName;
-    session.fileId = await findFileId(fileName);
-    if (session.fileId) {
-      await loadFile();
-    } else {
-      gastos = [];
-      pendientes = [];
-      session.fileId = await createFile(fileName);
-      await saveFile();
+    const previous = { fileName: session.fileName, fileId: session.fileId, gastos, pendientes };
+    try {
+      session.fileName = fileName;
+      session.fileId = await findFileId(fileName);
+      if (session.fileId) {
+        await loadFile();
+      } else {
+        gastos = [];
+        pendientes = [];
+        session.fileId = await createFile(fileName);
+        await saveFile();
+      }
+      saveSession();
+    } catch (e) {
+      if (session.token) {
+        session.fileName = previous.fileName;
+        session.fileId = previous.fileId;
+        gastos = previous.gastos;
+        pendientes = previous.pendientes;
+      }
+      throw e;
     }
-    saveSession();
+    workbookLoaded = true;
     render();
-    showScreen({ app: true });
-    toast('Archivo listo en Drive.', true);
+    showAppView('summary');
+    if (saveFilePreference(fileName)) toast('Archivo listo en Drive.', true);
+    else toast('Archivo listo en Drive, pero no se pudo recordar en este navegador.');
   }
 
   // ---------- Autenticación (Google Identity Services) ----------
@@ -150,8 +215,11 @@
     try {
       const u = await (await api('https://www.googleapis.com/oauth2/v3/userinfo')).json();
       session.email = u.email || '';
+      session.googleSub = typeof u.sub === 'string' && /^\d+$/.test(u.sub) ? u.sub : '';
+      session.fileName = session.fileName || readFilePreference();
       saveSession();
       $('userEmail').textContent = session.email;
+      showUserPhoto(u.picture);
       $('fileName').value = session.fileName || DEFAULT_FILE_NAME;
       accountLoaded = true;
       if (session.fileName) await openWorkbook(session.fileName);
@@ -242,7 +310,19 @@
   // ---------- Eventos ----------
   $('btnLogin').onclick = login;
   $('btnLogout').onclick = logout;
-  $('btnSettings').onclick = () => show('config', $('config').classList.contains('hidden'));
+  $('userPhoto').onerror = () => {
+    $('userPhoto').removeAttribute('src');
+    show('userPhoto', false);
+  };
+  $('btnSettings').onclick = () => {
+    $('fileName').value = session.fileName || DEFAULT_FILE_NAME;
+    showScreen({ config: true });
+  };
+  $('btnConfigBack').onclick = () => { if (workbookLoaded) showAppView('summary'); };
+  $('btnDetails').onclick = () => showAppView('details');
+  $('btnNewExpense').onclick = () => showAppView('newExpense');
+  $('btnDetailsBack').onclick = () => showAppView('summary');
+  $('btnExpenseBack').onclick = () => showAppView('summary');
   $('configForm').onsubmit = (ev) => {
     ev.preventDefault();
     withBusy($('btnSave'), async () => openWorkbook(normalizeFileName($('fileName').value)));

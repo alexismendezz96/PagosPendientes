@@ -9,11 +9,16 @@ El ID de cliente OAuth es público y se define en `config.js`; los usuarios no l
 ## Uso
 1. Pulsa **Iniciar sesión con Google** y acepta los permisos.
 2. En **Configuración de la cuenta** edita el nombre del archivo (por defecto `PagosPendientes.xlsx`); se crea si no existe. Puedes volver con el botón **Configuración**.
-3. Agrega gastos, divide uniforme o manual y marca cobros.
+3. En el resumen consulta los pendientes por persona. Usa **Ver pendientes** para marcar cobros o **Agregar nuevo pago** para registrar un gasto y dividirlo uniforme o manualmente.
+4. Vuelve al resumen desde cada sección. **Configuración** permite cambiar el archivo y regresar sin modificarlo.
+
+La foto de perfil de Google se muestra cuando está disponible; si no puede cargarse, se muestra únicamente el correo.
+El nombre del archivo se recuerda en el navegador para cada cuenta de Google. Al iniciar sesión nuevamente en ese navegador se abre el resumen; en otro navegador o si se borran los datos del sitio hay que configurar el archivo otra vez.
 
 ## Seguridad
 - Permiso mínimo de Drive (`drive.file`): solo archivos creados por la app.
 - Token y datos de sesión se guardan en `sessionStorage` (accesible a los scripts de la página y borrado al cerrar la pestaña); al cerrar sesión se revoca el token.
+- Solo el nombre del archivo y el identificador de la cuenta necesarios para recordarlo se conservan en `localStorage`; no se guarda allí el token.
 - SheetJS 0.20.3 se sirve desde el repositorio con SRI; la app no depende de un CDN para procesar Excel.
 - CSP, escape de HTML en todo dato renderizado y escape de consultas a Drive.
 
