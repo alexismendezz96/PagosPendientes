@@ -11,6 +11,8 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
   const preferences = new Map();
   const elements = new Map();
   const tokenClients = [];
+  const timers = [];
+  const mode = { value: 'equal' };
   let revoked;
   const element = (id) => {
     if (!elements.has(id)) {
@@ -18,6 +20,8 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
         'btnConfigBack', 'summary', 'newExpense', 'details'].includes(id) ? ['hidden'] : []);
       elements.set(id, {
         value: '', textContent: '', className: '',
+        firstElementChild: { textContent: '' },
+        setAttribute(name, value) { this[name] = value; },
         removeAttribute(name) { delete this[name]; },
         classList: {
           toggle(name, force) { if (force) classes.add(name); else classes.delete(name); },
@@ -40,10 +44,12 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
     window: { APP_CONFIG: { DEFAULT_FILE_NAME: 'PagosPendientes.xlsx', GOOGLE_CLIENT_ID: clientId }, google },
     google,
     document: {
+      documentElement: { dataset: {} },
       getElementById: element,
-      querySelector: () => ({ value: 'equal' }),
+      querySelector: () => mode,
       querySelectorAll: () => [],
     },
+    navigator: {},
     sessionStorage: {
       getItem: (key) => data.get(key) || null,
       setItem: (key, value) => data.set(key, value),
@@ -54,7 +60,7 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
       setItem: (key, value) => preferences.set(key, value),
     },
     fetch,
-    setTimeout: () => 1,
+    setTimeout: (callback) => { timers.push(callback); return timers.length; },
     AbortSignal,
     URL,
     clearTimeout() {},
@@ -62,7 +68,7 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
     ...extras,
   };
   vm.runInNewContext(source, context);
-  return { element, data, preferences, tokenClients, revoked: () => revoked };
+  return { element, data, preferences, tokenClients, timers, mode, document: context.document, revoked: () => revoked };
 }
 
 const startLogin = (app) => app.element('btnLogin').onclick();
@@ -313,11 +319,15 @@ test('recuerda el archivo por cuenta y conserva el flujo de pagos y cobros', asy
   app.element('btnNewExpense').onclick();
   app.element('desc').value = 'Almuerzo';
   app.element('total').value = '20';
-  app.element('people').value = 'Ana, Luis';
+  app.element('peopleRows').oninput({ target: { dataset: { person: '0' }, value: 'Ana' } });
+  app.element('btnAddPerson').onclick();
+  app.element('peopleRows').oninput({ target: { dataset: { person: '1' }, value: 'Luis' } });
   app.element('btnAdd').onclick();
   await flush();
   assert.match(app.element('byPerson').innerHTML, /Ana/);
-  app.element('btnExpenseBack').onclick();
+  assert.equal(isHidden(app, 'expenseForm'), true);
+  assert.equal(isHidden(app, 'expenseSaved'), false);
+  app.element('btnSavedBack').onclick();
   app.element('btnDetails').onclick();
   app.element('detail').onclick({ target: { dataset: { i: '0' } } });
   await flush();
@@ -330,6 +340,9 @@ test('recuerda el archivo por cuenta y conserva el flujo de pagos y cobros', asy
   await signIn();
   assert.equal(isHidden(app, 'summary'), false);
   assert.equal(app.element('fileName').value, 'mis-pagos.xlsx');
+  assert.doesNotMatch(app.element('detail').innerHTML, /Cobrado/);
+  app.element('filterStatus').value = 'Cobrado';
+  app.element('filterStatus').oninput();
   assert.match(app.element('detail').innerHTML, /Cobrado/);
 
   app.element('btnLogout').onclick();
@@ -355,4 +368,121 @@ test('informa si el navegador no permite recordar el archivo', async () => {
   await flush();
   assert.equal(isHidden(app, 'summary'), false);
   assert.match(app.element('msg').textContent, /no se pudo recordar/);
+});
+
+test('guarda personas por cuenta, filtra el resumen y evita reenviar el gasto', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  let bytes;
+  let writes = 0;
+  const fetch = async (url, opts = {}) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: '123', name: 'Usuario', email: 'u@example.com' }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: bytes ? [{ id: 'id' }] : [] }) };
+    if (opts.method === 'POST') return { ok: true, json: async () => ({ id: 'id' }) };
+    if (opts.method === 'PATCH') { bytes = opts.body; writes++; return { ok: true }; }
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  const app = setup(undefined, fetch, { XLSX, Logic });
+  startLogin(app);
+  await app.tokenClients[0].options.callback({ access_token: 't', expires_in: 3600, scope: 'drive.file' });
+  assert.equal(app.element('userName').textContent, 'Usuario');
+  app.element('configForm').onsubmit({ preventDefault() {} });
+  await flush();
+  app.element('btnNewExpense').onclick();
+  app.element('peopleRows').oninput({ target: { dataset: { person: '0' }, value: 'Ana' } });
+  app.element('peopleRows').onclick({ target: { dataset: { savePerson: '0' } } });
+  assert.equal(app.preferences.get('pp_people_123'), '["Ana"]');
+  app.element('btnAddPerson').onclick();
+  app.element('peopleRows').oninput({ target: { dataset: { person: '1' }, value: 'Ana María' } });
+  app.element('desc').value = 'Comida';
+  app.element('total').value = '10';
+  app.element('btnAdd').onclick();
+  await flush();
+  assert.equal(writes, 2);
+  assert.equal(app.element('desc').value, '');
+  assert.equal(isHidden(app, 'expenseForm'), true);
+  app.element('btnSavedBack').onclick();
+  app.element('byPerson').onclick({ target: { closest: () => ({ dataset: { personIndex: '0' } }) } });
+  assert.equal(app.element('filterPerson').value, 'Ana');
+  assert.match(app.element('detail').innerHTML, /Ana/);
+  assert.doesNotMatch(app.element('detail').innerHTML, /Ana María/);
+  app.element('filterPerson').oninput();
+  assert.match(app.element('detail').innerHTML, /Ana María/);
+  app.element('btnDetailsBack').onclick();
+  app.element('btnNewExpense').onclick();
+  assert.match(app.element('savedPeople').innerHTML, /Ana/);
+  app.element('btnAdd').onclick();
+  await flush();
+  assert.equal(writes, 2);
+  app.element('btnLogout').onclick();
+  assert.equal(app.element('userName').textContent, '');
+  assert.equal(app.element('savedPeople').innerHTML, '');
+});
+
+test('el tema se recuerda y las notificaciones desaparecen automáticamente', () => {
+  const app = setup();
+  app.element('btnTheme').onclick();
+  assert.equal(app.document.documentElement.dataset.theme, 'dark');
+  assert.equal(app.preferences.get('pp_theme'), 'dark');
+  app.element('peopleRows').onclick({ target: { dataset: { savePerson: '0' } } });
+  assert.match(app.element('msg').textContent, /Escribe el nombre/);
+  app.timers.at(-1)();
+  assert.equal(isHidden(app, 'msg'), true);
+});
+
+test('cada nuevo gasto comienza con la fecha local actual', () => {
+  let day = 5;
+  class LocalDate extends Date {
+    getFullYear() { return 2026; }
+    getMonth() { return 10; }
+    getDate() { return day; }
+  }
+  const app = setup(undefined, undefined, { Date: LocalDate });
+  assert.equal(app.element('fecha').value, '2026-11-05');
+  day = 6;
+  app.element('btnNewExpense').onclick();
+  assert.equal(app.element('fecha').value, '2026-11-06');
+  app.element('btnAnotherExpense').onclick();
+  assert.equal(app.element('fecha').value, '2026-11-06');
+});
+
+test('mantiene los importes manuales y revierte un gasto si falla el guardado', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([]), 'Gastos');
+  let bytes = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
+  let fail = true;
+  const fetch = async (url, opts = {}) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: '123' }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: 'id' }] }) };
+    if (opts.method === 'PATCH') {
+      if (fail) throw new Error('Sin conexión');
+      bytes = opts.body;
+      return { ok: true };
+    }
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  const app = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic });
+  await flush();
+  app.element('btnNewExpense').onclick();
+  app.mode.value = 'manual';
+  app.element('peopleRows').oninput({ target: { dataset: { person: '0' }, value: 'Ana' } });
+  app.element('manual').oninput({ target: { dataset: { i: '0' }, value: '3' } });
+  app.element('btnAddPerson').onclick();
+  app.element('peopleRows').oninput({ target: { dataset: { person: '1' }, value: 'Luis' } });
+  app.element('manual').oninput({ target: { dataset: { i: '1' }, value: '7' } });
+  app.element('desc').value = 'Comida';
+  app.element('total').value = '10';
+  app.element('btnAdd').onclick();
+  await flush();
+  assert.equal(app.element('msg').textContent, 'Sin conexión');
+  assert.equal(isHidden(app, 'expenseForm'), false);
+  fail = false;
+  app.element('btnAdd').onclick();
+  await flush();
+  const saved = XLSX.read(bytes);
+  const rows = XLSX.utils.sheet_to_json(saved.Sheets.Pendientes);
+  assert.deepEqual(rows.map((row) => row.Monto), [3, 7]);
+  assert.equal(XLSX.utils.sheet_to_json(saved.Sheets.Gastos).length, 1);
 });

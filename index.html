@@ -2,23 +2,30 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://accounts.google.com; style-src 'self' https://accounts.google.com; connect-src 'self' https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com; img-src 'self' data: https://*.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a73e8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://accounts.google.com; style-src 'self' https://accounts.google.com; connect-src 'self' https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com; img-src 'self' data: https://*.googleusercontent.com; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <title>Pagos Pendientes</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <h1>💸 Pagos Pendientes</h1>
     <div id="userBox" class="user-box hidden">
       <img id="userPhoto" class="user-photo hidden" alt="" referrerpolicy="no-referrer">
-      <span id="userEmail"></span>
-      <button id="btnSettings" class="btn btn-secondary btn-small" type="button">Configuración</button>
-      <button id="btnLogout" class="btn btn-secondary btn-small" type="button">Cerrar sesión</button>
+      <div class="user-info"><strong id="userName"></strong><span id="userEmail"></span></div>
+    </div>
+    <h1>💸 Pagos Pendientes</h1>
+    <div class="topbar-actions">
+      <button id="btnTheme" class="btn btn-secondary btn-icon" type="button" title="Activar tema oscuro" aria-label="Activar tema oscuro"><span aria-hidden="true">☾</span></button>
+      <button id="btnSettings" class="btn btn-secondary btn-icon hidden" type="button" title="Configuración" aria-label="Configuración"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6 1.5 2.2 2.6.4 2-1.1 2.4 2.4-1.1 2 .4 2.6L22 12l-2.2 1.5-.4 2.6 1.1 2-2.4 2.4-2-1.1-2.6.4L12 22l-1.5-2.2-2.6-.4-2 1.1-2.4-2.4 1.1-2-.4-2.6L2 12l2.2-1.5.4-2.6-1.1-2 2.4-2.4 2 1.1 2.6-.4L12 2Z"/></svg></button>
+      <button id="btnLogout" class="btn btn-secondary btn-icon hidden" type="button" title="Cerrar sesión" aria-label="Cerrar sesión"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H4v16h6M14 8l4 4-4 4m4-4H8"/></svg></button>
     </div>
   </div>
+  <div id="msg" class="toast hidden" role="status" aria-live="polite"></div>
 </header>
 
 <main>
@@ -62,14 +69,17 @@
 
     <section id="newExpense" class="card hidden">
       <h2>Agregar nuevo pago</h2>
+      <div id="expenseForm">
       <label for="desc">Descripción</label>
       <input type="text" id="desc" maxlength="120" placeholder="Compra de almuerzo">
       <div class="row">
         <div><label for="total">Total</label><input type="number" id="total" step="0.01" min="0"></div>
         <div><label for="fecha">Fecha</label><input type="date" id="fecha"></div>
       </div>
-      <label for="people">Personas (separadas por coma)</label>
-      <input type="text" id="people" maxlength="300" placeholder="Ana, Luis, Pedro">
+      <label>Personas</label>
+      <div id="peopleRows"></div>
+      <datalist id="savedPeople"></datalist>
+      <button id="btnAddPerson" class="btn btn-secondary btn-small" type="button">Agregar otra persona</button>
       <label class="choice"><input type="radio" name="mode" value="equal" checked> Dividir uniformemente</label>
       <label class="choice"><input type="radio" name="mode" value="manual"> Montos manuales</label>
       <div id="manual" class="hidden"></div>
@@ -78,10 +88,24 @@
         <button id="btnAdd" class="btn" type="button">Guardar gasto</button>
         <button id="btnExpenseBack" class="btn btn-secondary" type="button">Volver al resumen</button>
       </div>
+      </div>
+      <div id="expenseSaved" class="hidden" role="status">
+        <p>Gasto guardado. ¿Qué deseas hacer ahora?</p>
+        <div class="actions">
+          <button id="btnAnotherExpense" class="btn" type="button">Agregar otro gasto</button>
+          <button id="btnSavedBack" class="btn btn-secondary" type="button">Volver al resumen</button>
+        </div>
+      </div>
     </section>
     <section id="details" class="card hidden">
       <h2>Detalle de pagos</h2>
       <p class="section-description">Revisa los pagos y marca los pendientes como cobrados.</p>
+      <div class="filters">
+        <div><label for="filterStatus">Estado</label><select id="filterStatus"><option value="Pendiente">Pendientes</option><option value="Cobrado">Cobrados</option><option value="">Todos</option></select></div>
+        <div><label for="filterFrom">Fecha del gasto desde</label><input id="filterFrom" type="date"></div>
+        <div><label for="filterTo">Fecha del gasto hasta</label><input id="filterTo" type="date"></div>
+        <div><label for="filterPerson">Persona</label><input id="filterPerson" type="text" placeholder="Buscar por nombre"></div>
+      </div>
       <div class="table-wrap"><table id="detail"></table></div>
       <button id="btnDetailsBack" class="btn btn-secondary" type="button">Volver al resumen</button>
     </section>
@@ -90,10 +114,8 @@
 
 <footer class="site-footer">
   <span>Pagos Pendientes</span>
-  <span>Versión 1.1.0</span>
+  <span>Versión 1.2.0</span>
 </footer>
-
-<div id="msg" class="toast hidden" role="status" aria-live="polite"></div>
 
 <script src="vendor/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>

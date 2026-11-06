@@ -57,5 +57,14 @@
     });
   }
 
-  return { splitEqual, manualSplit, buildExpense, pendingByPerson, markCollected, round2 };
+  function matchesPayment(payment, expense, { status, from, to, person, exactPerson }) {
+    const date = String(expense.Fecha || '');
+    const name = String(payment.Persona || '');
+    const query = person.trim().toLocaleLowerCase();
+    return (!status || payment.Estado === status) &&
+      (!from || (!!date && date >= from)) && (!to || (!!date && date <= to)) &&
+      (exactPerson !== null ? name === exactPerson : name.toLocaleLowerCase().includes(query));
+  }
+
+  return { splitEqual, manualSplit, buildExpense, pendingByPerson, markCollected, matchesPayment, round2 };
 });

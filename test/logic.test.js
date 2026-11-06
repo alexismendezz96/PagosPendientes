@@ -18,3 +18,15 @@ test('pendientes y cobro', () => {
   const c = L.buildExpense({ descripcion: 'x', total: 5, fecha: '2026-01-01', cobrado: true, parts: L.splitEqual(5, ['a']) });
   assert.deepStrictEqual(L.pendingByPerson(c.pendientes), {});
 });
+
+test('filtros combinan estado, fechas del gasto y persona', () => {
+  const p = { Persona: 'Ana María', Estado: 'Pendiente' };
+  const g = { Fecha: '2026-03-15' };
+  const filters = { status: 'Pendiente', from: '2026-03-15', to: '2026-03-15', person: 'ANA', exactPerson: null };
+  assert.strictEqual(L.matchesPayment(p, g, filters), true);
+  assert.strictEqual(L.matchesPayment(p, g, { ...filters, status: 'Cobrado' }), false);
+  assert.strictEqual(L.matchesPayment(p, g, { ...filters, from: '2026-03-16' }), false);
+  assert.strictEqual(L.matchesPayment(p, {}, filters), false);
+  assert.strictEqual(L.matchesPayment(p, g, { ...filters, person: 'Ana', exactPerson: 'Ana' }), false);
+  assert.strictEqual(L.matchesPayment(p, g, { ...filters, person: '', status: '', from: '', to: '' }), true);
+});
