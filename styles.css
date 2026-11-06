@@ -9,7 +9,8 @@ body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, san
 .topbar-inner { max-width: 860px; margin: 0 auto; padding: .75rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .topbar h1 { font-size: 1.15rem; margin: 0; }
 .user-box { display: flex; align-items: center; gap: .75rem; font-size: .9rem; color: var(--muted); }
-main { max-width: 860px; margin: 0 auto; padding: 1rem; }
+main { max-width: 860px; min-height: calc(100vh - 116px); margin: 0 auto; padding: 1rem; }
+.site-footer { max-width: 860px; margin: 0 auto; padding: 1rem; display: flex; justify-content: space-between; gap: .75rem; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--border); }
 .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.25rem; margin: 1rem 0; animation: fadeUp .35s ease both; }
 .card h2 { margin: 0 0 .75rem; font-size: 1.05rem; }
 .hero { text-align: center; padding: 2.5rem 1.25rem; }
