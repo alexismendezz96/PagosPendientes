@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pagos Pendientes</title>
+<style>
+ body{font-family:system-ui,sans-serif;max-width:760px;margin:0 auto;padding:1rem;color:#222}
+ section{border:1px solid #ddd;border-radius:8px;padding:1rem;margin:1rem 0}
+ label{display:block;margin:.5rem 0 .2rem}
+ input,select,button{font:inherit;padding:.4rem;margin:.1rem 0}
+ input[type=text],input[type=number],input[type=date]{width:100%;box-sizing:border-box}
+ table{border-collapse:collapse;width:100%} td,th{border-bottom:1px solid #eee;padding:.3rem;text-align:left}
+ .row{display:flex;gap:.5rem}.hidden{display:none}#msg{color:#b00}.ok{color:#080!important}
+</style>
+</head>
+<body>
+<h1>Pagos Pendientes</h1>
+<p id="msg"></p>
+
+<section id="login">
+  <button id="btnLogin">Iniciar sesión con Google</button>
+  <span id="user"></span>
+</section>
+
+<section id="config" class="hidden">
+  <h2>Configuración</h2>
+  <label>Google OAuth Client ID <input type="text" id="clientId" placeholder="xxxx.apps.googleusercontent.com"></label>
+  <label>Archivo Excel en Drive (enlace o ID) <input type="text" id="fileRef" placeholder="https://drive.google.com/file/d/ID/view"></label>
+  <button id="btnSave">Guardar y asociar archivo</button>
+  <button id="btnCreate">Crear archivo nuevo en Drive</button>
+  <p><small>Permisos solicitados: Drive (leer/escribir el archivo Excel) y perfil básico.</small></p>
+</section>
+
+<section id="app" class="hidden">
+  <h2>Nuevo gasto</h2>
+  <label>Descripción <input type="text" id="desc" placeholder="Compra de almuerzo"></label>
+  <div class="row">
+    <div><label>Total <input type="number" id="total" step="0.01" min="0"></label></div>
+    <div><label>Fecha <input type="date" id="fecha"></label></div>
+  </div>
+  <label>Personas (separadas por coma) <input type="text" id="people" placeholder="Ana, Luis, Pedro"></label>
+  <label><input type="radio" name="mode" value="equal" checked> Dividir uniformemente</label>
+  <label><input type="radio" name="mode" value="manual"> Montos manuales</label>
+  <div id="manual" class="hidden"></div>
+  <label><input type="checkbox" id="cobrado"> Registrar como ya cobrado</label>
+  <button id="btnAdd">Guardar gasto</button>
+
+  <h2>Pendiente por persona</h2>
+  <table id="byPerson"></table>
+  <h2>Detalle</h2>
+  <table id="detail"></table>
+</section>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client"></script>
+<script src="logic.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
