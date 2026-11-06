@@ -44,6 +44,7 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
     },
     fetch,
     setTimeout: () => 1,
+    AbortSignal,
     clearTimeout() {},
     console,
     ...extras,
