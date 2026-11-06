@@ -43,7 +43,7 @@ function setup(initialSession) {
   return { element, data, tokenClients, revoked: () => revoked };
 }
 
-const startLogin = (app) => app.element('loginForm').onsubmit({ preventDefault() {} });
+const startLogin = (app) => app.element('btnLogin').onclick();
 
 test('el login usa el ID de config.js y guarda solo la sesión de la pestaña', async () => {
   const app = setup();

@@ -218,7 +218,7 @@
   }
 
   // ---------- Eventos ----------
-  $('loginForm').onsubmit = (ev) => { ev.preventDefault(); login(); };
+  $('btnLogin').onclick = login;
   $('btnLogout').onclick = logout;
   $('btnSettings').onclick = () => show('config', $('config').classList.contains('hidden'));
   $('configForm').onsubmit = (ev) => {
