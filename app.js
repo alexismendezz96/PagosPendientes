@@ -566,8 +566,8 @@
         const status = registered ? 'Persona guardada' : 'Persona no guardada';
         const icon = registered ? '✓' : '!';
         return `<tr class="person-row-link" role="link" tabindex="0" data-person-index="${i}" aria-label="Ver pendientes de ${esc(p)}. ${status}${old ? '. Tiene pendientes de al menos un mes' : ''}"><td>` +
-          `<span class="person-indicator ${registered ? 'person-saved' : 'person-unsaved'}" title="${status}" aria-hidden="true">${icon}</span> ${esc(p)}` +
-          `${old ? ' <span class="badge badge-old">Pendiente de al menos 1 mes</span>' : ''}</td><td>${m.toFixed(2)}</td></tr>`;
+          `<span class="person-indicator ${registered ? 'person-saved' : 'person-unsaved'}" title="${status}" aria-hidden="true">${icon}</span>${esc(p)}` +
+          `${old ? '<span class="badge badge-old">Pendiente de al menos 1 mes</span>' : ''}</td><td>${m.toFixed(2)}</td></tr>`;
       }).join('') ||
         '<tr><td colspan="2">Sin pendientes 🎉</td></tr>') + '</tbody>';
     renderDetails();
