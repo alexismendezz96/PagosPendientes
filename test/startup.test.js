@@ -46,7 +46,7 @@ test('la caché contiene los mismos recursos versionados que la página', () => 
   const html = fs.readFileSync(require.resolve('../index.html'), 'utf8');
   const worker = fs.readFileSync(require.resolve('../service-worker.js'), 'utf8');
   for (const resource of ['styles.css', 'startup.js', 'config.js', 'logic.js', 'app.js', 'manifest.webmanifest']) {
-    const url = `${resource}?v=1.2.6`;
+    const url = `${resource}?v=1.2.7`;
     assert.ok(html.includes(url), url);
     assert.ok(worker.includes(`'${url}'`), url);
   }

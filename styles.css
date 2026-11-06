@@ -63,7 +63,6 @@ th { color: var(--muted); font-weight: 500; font-size: .8rem; text-transform: up
 td, th { border-bottom: 1px solid var(--border); padding: .55rem .5rem; text-align: left; }
 tbody tr { transition: background .15s; } tbody tr:hover { background: var(--hover); }
 .person-row-link { cursor: pointer; }
-.person-row-link td:first-child { color: var(--primary); text-decoration: underline; }
 .person-row-link:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem .75rem; margin-bottom: 1rem; }
 .person-row { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
