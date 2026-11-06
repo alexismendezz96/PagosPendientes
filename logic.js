@@ -101,5 +101,28 @@
       (exactPerson !== null ? personKey(name) === personKey(exactPerson) : personKey(name).includes(query));
   }
 
-  return { splitEqual, manualSplit, buildExpense, pendingByPerson, markCollected, matchesPayment, round2, personKey, monthsBefore, threeMonthsBefore, oldCollected, oldPending };
+  const paymentSortOptions = ['date-asc', 'date-desc', 'amount-desc', 'amount-asc', 'person-asc', 'person-desc'];
+  const personCollator = new Intl.Collator('es', { sensitivity: 'base' });
+  function sortPaymentRows(rows, order) {
+    const sort = paymentSortOptions.includes(order) ? order : 'date-asc';
+    const compare = (a, b) => {
+      if (sort.startsWith('date-')) {
+        const first = a.gasto.Fecha, second = b.gasto.Fecha;
+        const firstValid = validIsoDate(first), secondValid = validIsoDate(second);
+        if (firstValid !== secondValid) return firstValid ? -1 : 1;
+        if (!firstValid) return 0;
+        return (first < second ? -1 : first > second ? 1 : 0) * (sort === 'date-desc' ? -1 : 1);
+      }
+      if (sort.startsWith('amount-')) {
+        const first = Number(a.p.Monto), second = Number(b.p.Monto);
+        if (Number.isFinite(first) !== Number.isFinite(second)) return Number.isFinite(first) ? -1 : 1;
+        if (!Number.isFinite(first)) return 0;
+        return (first - second) * (sort === 'amount-desc' ? -1 : 1);
+      }
+      return personCollator.compare(personKey(a.p.Persona), personKey(b.p.Persona)) * (sort === 'person-desc' ? -1 : 1);
+    };
+    return [...rows].sort((a, b) => compare(a, b) || a.i - b.i);
+  }
+
+  return { splitEqual, manualSplit, buildExpense, pendingByPerson, markCollected, matchesPayment, round2, personKey, monthsBefore, threeMonthsBefore, oldCollected, oldPending, paymentSortOptions, sortPaymentRows };
 });

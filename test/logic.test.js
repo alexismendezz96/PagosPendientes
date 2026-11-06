@@ -72,3 +72,22 @@ test('pendiente antiguo cuenta un mes calendario e ignora cobrados y fechas invÃ
   assert.strictEqual(L.oldPending({ Estado: 'Pendiente' }, { Fecha: '2026-02-30' }, cutoff), false);
   assert.strictEqual(L.oldPending({ Estado: 'Pendiente' }, {}, cutoff), false);
 });
+
+test('ordena pagos por fecha, monto o persona sin alterar los Ã­ndices originales', () => {
+  const rows = [
+    { i: 0, p: { Persona: 'Zoe', Monto: 5 }, gasto: { Fecha: '2026-03-01' } },
+    { i: 1, p: { Persona: 'Ana', Monto: 12 }, gasto: { Fecha: '2026-01-01' } },
+    { i: 2, p: { Persona: 'ana', Monto: 2 }, gasto: { Fecha: '2026-01-01' } },
+    { i: 3, p: { Persona: 'Luis', Monto: 7 }, gasto: { Fecha: '2026-02-30' } },
+    { i: 4, p: { Persona: 'Eva', Monto: 1 }, gasto: {} },
+  ];
+  const indices = (sort) => L.sortPaymentRows(rows, sort).map((row) => row.i);
+  assert.deepStrictEqual(indices('date-asc'), [1, 2, 0, 3, 4]);
+  assert.deepStrictEqual(indices('date-desc'), [0, 1, 2, 3, 4]);
+  assert.deepStrictEqual(indices('amount-desc'), [1, 3, 0, 2, 4]);
+  assert.deepStrictEqual(indices('amount-asc'), [4, 2, 0, 3, 1]);
+  assert.deepStrictEqual(indices('person-asc'), [1, 2, 4, 3, 0]);
+  assert.deepStrictEqual(indices('person-desc'), [0, 3, 4, 1, 2]);
+  assert.deepStrictEqual(indices('no-valido'), [1, 2, 0, 3, 4]);
+  assert.deepStrictEqual(rows.map((row) => row.i), [0, 1, 2, 3, 4]);
+});

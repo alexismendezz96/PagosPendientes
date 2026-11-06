@@ -57,6 +57,7 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
       querySelectorAll: () => modeInputs,
     },
     navigator: {},
+    Logic: require('../logic'),
     sessionStorage: {
       getItem: (key) => data.get(key) || null,
       setItem: (key, value) => data.set(key, value),
@@ -1173,6 +1174,71 @@ test('advierte desde 1000 pagos y pagina sin alterar el total filtrado', async (
   app.element('filterPerson').oninput();
   assert.match(app.element('detailPageInfo').textContent, /Página 1 de 1/);
   assert.equal(app.element('detailTotal').textContent, '1.10');
+});
+
+test('recuerda el orden, pagina resultados ordenados y cobra el registro correcto', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(Array.from({ length: 55 }, (_, i) => ({
+    ID: String(i), Fecha: i === 54 ? '2025-01-01' : '2026-01-01', Descripcion: `Gasto ${i}`,
+  }))), 'Gastos');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(Array.from({ length: 55 }, (_, i) => ({
+    ID: String(i), Persona: `Persona ${i}`, Monto: i + 1, Estado: 'Pendiente',
+  }))), 'Pendientes');
+  let bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  const storage = new Map();
+  const localStorage = {
+    getItem: (key) => storage.get(key) || null,
+    setItem: (key, value) => storage.set(key, value),
+    removeItem: (key) => storage.delete(key),
+  };
+  const fetch = async (url, opts = {}) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: '123' }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: 'id' }] }) };
+    if (opts.method === 'PATCH') { bytes = opts.body; return { ok: true }; }
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  const app = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic, localStorage });
+  await flush();
+  app.element('btnDetails').onclick();
+  assert.equal(app.element('sortPayments').value, 'date-asc');
+  assert.ok(app.element('detail').innerHTML.indexOf('Gasto 54') < app.element('detail').innerHTML.indexOf('Gasto 0'));
+  app.element('btnDetailNext').onclick();
+  assert.match(app.element('detailPageInfo').textContent, /Página 2 de 2/);
+  app.element('sortPayments').value = 'amount-desc';
+  app.element('sortPayments').onchange();
+  assert.equal(storage.get('pp_payment_sort'), 'amount-desc');
+  assert.match(app.element('detailPageInfo').textContent, /Página 1 de 2/);
+  assert.ok(app.element('detail').innerHTML.indexOf('Gasto 54') < app.element('detail').innerHTML.indexOf('Gasto 53'));
+  assert.equal(app.element('detailTotal').textContent, '1540.00');
+  app.element('detail').onclick({ target: { dataset: { i: '54' } } });
+  await flush();
+  const saved = XLSX.utils.sheet_to_json(XLSX.read(bytes).Sheets.Pendientes);
+  assert.equal(saved[54].Estado, 'Cobrado');
+  assert.equal(saved[0].Estado, 'Pendiente');
+  const reopened = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic, localStorage });
+  await flush();
+  reopened.element('btnDetails').onclick();
+  assert.equal(reopened.element('sortPayments').value, 'amount-desc');
+  assert.match(reopened.element('detail').innerHTML, /Gasto 53/);
+  assert.doesNotMatch(reopened.element('detail').innerHTML, /Gasto 54/);
+  reopened.element('filterPerson').value = 'Persona 1';
+  reopened.element('filterPerson').oninput();
+  assert.equal(reopened.element('sortPayments').value, 'amount-desc');
+  assert.ok(reopened.element('detail').innerHTML.indexOf('Gasto 19') < reopened.element('detail').innerHTML.indexOf('Gasto 18'));
+});
+
+test('avisa cuando no puede recordar el orden en el navegador', () => {
+  const localStorage = {
+    getItem() { return null; },
+    setItem() { throw new Error('Bloqueado'); },
+  };
+  const app = setup(undefined, undefined, { localStorage });
+  app.element('sortPayments').value = 'date-desc';
+  app.element('sortPayments').onchange();
+  assert.equal(app.element('sortPayments').value, 'date-desc');
+  assert.match(app.element('msg').textContent, /No se pudo recordar el orden/);
 });
 
 test('impide sobrescribir un cobro aceptado por Drive cuando se pierde la respuesta', async () => {

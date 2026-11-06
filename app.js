@@ -12,6 +12,7 @@
   const PEOPLE_KEY_PREFIX = 'pp_people_';
   const DRAFT_KEY_PREFIX = 'pp_draft_';
   const THEME_KEY = 'pp_theme';
+  const SORT_KEY = 'pp_payment_sort';
   const TOAST_MS = 4000;
   const MAX_FILE_NAME = 100;
   const REQUEST_TIMEOUT_MS = 20000;
@@ -577,8 +578,8 @@
     const filters = { status: $('filterStatus').value, from: $('filterFrom').value, to: $('filterTo').value,
       collectedFrom: $('filterCollectedFrom').value, collectedTo: $('filterCollectedTo').value,
       person: $('filterPerson').value, exactPerson };
-    const rows = pendientes.map((p, i) => ({ p, i, gasto: gastoById[p.ID] || {} }))
-      .filter(({ p, gasto }) => Logic.matchesPayment(p, gasto, filters));
+    const rows = Logic.sortPaymentRows(pendientes.map((p, i) => ({ p, i, gasto: gastoById[p.ID] || {} }))
+      .filter(({ p, gasto }) => Logic.matchesPayment(p, gasto, filters)), $('sortPayments').value);
     $('detailTotal').textContent = rows.reduce((sum, { p }) => Logic.round2(sum + Number(p.Monto)), 0).toFixed(2);
     const pageCount = Math.max(1, Math.ceil(rows.length / DETAIL_PAGE_SIZE));
     detailPage = Math.min(detailPage, pageCount - 1);
@@ -756,6 +757,12 @@
       renderDetails();
     };
   });
+  $('sortPayments').onchange = () => {
+    detailPage = 0;
+    renderDetails();
+    try { localStorage.setItem(SORT_KEY, $('sortPayments').value); }
+    catch (e) { toast('No se pudo recordar el orden en este navegador.'); }
+  };
   $('btnDetailPrevious').onclick = () => { if (detailPage > 0) { detailPage--; renderDetails(); } };
   $('btnDetailNext').onclick = () => { detailPage++; renderDetails(); };
   $('btnTheme').onclick = () => {
@@ -847,6 +854,10 @@
   catch (e) { toast('No se pudo recuperar el tema guardado en este navegador.'); }
   setTheme(theme === 'dark' || theme === 'light' ? theme :
     (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  let sort;
+  try { sort = localStorage.getItem(SORT_KEY); }
+  catch (e) { toast('No se pudo recuperar el orden guardado en este navegador.'); }
+  $('sortPayments').value = Logic.paymentSortOptions.includes(sort) ? sort : 'date-asc';
   $('filterStatus').value = 'Pendiente';
   resetExpense();
   if ('serviceWorker' in navigator) {

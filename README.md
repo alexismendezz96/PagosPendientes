@@ -14,6 +14,8 @@ El ID de cliente OAuth es público y se define en `config.js`; los usuarios no l
 
 La ventana de pagos pendientes muestra pendientes por defecto; puedes filtrar por estado, rangos de fechas del gasto y de cobro y nombre de persona. Los filtros de fecha de cobro excluyen registros sin fecha válida. El filtro de persona sugiere nombres guardados en el Excel, aunque también permite buscar cualquier nombre. Se muestran 50 pagos por página; el total incluye todos los resultados filtrados, no solo los visibles. Puedes revertir un cobro desde su registro después de confirmarlo. El botón de tema permite alternar entre claro y oscuro; la elección se recuerda en el navegador.
 
+Por defecto, los pagos se ordenan por fecha del gasto, del más antiguo al más reciente. Puedes cambiar el orden por fecha, monto o persona; la elección se recuerda en el navegador. En los ordenamientos por fecha, los registros sin fecha válida aparecen al final.
+
 En el resumen, el icono verde identifica personas guardadas y el anaranjado personas que no están en la lista. Una etiqueta señala a quienes tienen al menos un pendiente de un mes o más; esos pagos se resaltan en rojo en el detalle. Se cuenta un mes de calendario desde la fecha del gasto, usando la fecha local; los registros cobrados o sin fecha válida no se marcan.
 
 Se recomienda conservar como máximo un año de historial de cobros y hacer una copia manual del Excel en Drive. En Configuración, **Eliminar cobros antiguos** elimina, previa confirmación, los pagos cobrados antes de la fecha de hoy menos tres meses de calendario y los gastos que se queden sin pagos. No elimina pendientes, cobros sin fecha válida ni gastos que aún tengan pagos. La operación se aplica al archivo abierto, aunque se haya escrito otro nombre en configuración, y no puede deshacerse desde la aplicación. La advertencia a partir de 1,000 pagos es orientativa, no un límite de rendimiento medido.
@@ -42,7 +44,7 @@ El nombre del archivo se recuerda en el navegador para cada cuenta de Google. Al
 ## Seguridad
 - Permiso mínimo de Drive (`drive.file`): solo archivos creados por la app.
 - Token y datos de sesión se guardan en `sessionStorage` (accesible a los scripts de la página y borrado al cerrar la pestaña); al cerrar sesión se revoca el token.
-- El nombre del archivo, el identificador de la cuenta, la preferencia de tema y los datos del borrador de gasto se conservan en `localStorage`; no se guarda allí el token ni la lista de personas guardadas.
+- El nombre del archivo, el identificador de la cuenta, las preferencias de tema y orden y los datos del borrador de gasto se conservan en `localStorage`; no se guarda allí el token ni la lista de personas guardadas.
 - SheetJS 0.20.3 se sirve desde el repositorio con SRI; la app no depende de un CDN para procesar Excel.
 - CSP, escape de HTML en todo dato renderizado y escape de consultas a Drive.
 
