@@ -102,6 +102,7 @@
     show('btnLogout', !login && !loading);
     show('btnConfigBack', config && workbookLoaded);
     show('summaryActions', app && currentView === 'summary');
+    show('detailsActions', app && currentView === 'details');
   }
   function showAppView(view) {
     currentView = view;

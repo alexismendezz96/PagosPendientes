@@ -14,7 +14,7 @@ El ID de cliente OAuth es público y se define en `config.js`; los usuarios no l
 
 La ventana de pagos pendientes muestra pendientes por defecto; puedes filtrar por estado, rango de fechas del gasto y nombre de persona. El botón de tema permite alternar entre claro y oscuro; la elección se recuerda en el navegador.
 
-Las acciones del resumen permanecen visibles en la barra superior al desplazarse por el listado.
+Las acciones generales de las pantallas con listados se sitúan antes del listado y permanecen visibles en la barra superior al desplazarse; las acciones de cada pago permanecen junto a su registro.
 
 Al registrar un gasto, agrega un campo por persona. **Guardar persona** añade el nombre a las sugerencias para próximos gastos en ese navegador y cuenta de Google; no se sincroniza con otros dispositivos. Después de guardar el gasto, elige entre volver al resumen o agregar otro registro con el formulario limpio.
 

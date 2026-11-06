@@ -17,7 +17,7 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
   const element = (id) => {
     if (!elements.has(id)) {
       const classes = new Set(['loading', 'login', 'config', 'app', 'userBox', 'userPhoto',
-        'btnConfigBack', 'summaryActions', 'summary', 'newExpense', 'details'].includes(id) ? ['hidden'] : []);
+        'btnConfigBack', 'summaryActions', 'detailsActions', 'summary', 'newExpense', 'details'].includes(id) ? ['hidden'] : []);
       elements.set(id, {
         value: '', textContent: '', className: '',
         firstElementChild: { textContent: '' },
@@ -120,6 +120,7 @@ test('sin sesión se muestra el login y se oculta la carga', () => {
   assert.equal(isHidden(app, 'loading'), true);
   assert.equal(isHidden(app, 'login'), false);
   assert.equal(isHidden(app, 'summaryActions'), true);
+  assert.equal(isHidden(app, 'detailsActions'), true);
 });
 
 test('mantiene la carga visible sin mostrar login mientras se restaura la sesión', async () => {
@@ -206,6 +207,7 @@ test('navega entre resumen, pagos, detalles y configuración sin mostrar seccion
     assert.equal(isHidden(app, 'app'), false);
     assert.equal(isHidden(app, 'config'), true);
     assert.equal(isHidden(app, 'summaryActions'), visible !== 'summary');
+    assert.equal(isHidden(app, 'detailsActions'), visible !== 'details');
   };
   expectView('summary');
   app.element('btnDetails').onclick();
@@ -214,6 +216,7 @@ test('navega entre resumen, pagos, detalles y configuración sin mostrar seccion
   app.element('filterStatus').value = 'Cobrado';
   app.element('btnSettings').onclick();
   assert.equal(app.element('btnConfigBack').textContent, 'Volver a pendientes');
+  assert.equal(isHidden(app, 'detailsActions'), true);
   app.element('btnSettings').onclick();
   app.element('btnConfigBack').onclick();
   expectView('details');
