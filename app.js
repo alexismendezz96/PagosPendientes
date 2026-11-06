@@ -14,6 +14,8 @@
   const TOAST_MS = 4000;
   const MAX_FILE_NAME = 100;
   const REQUEST_TIMEOUT_MS = 20000;
+  const LARGE_RECORD_COUNT = 1000;
+  const DETAIL_PAGE_SIZE = 50;
 
   const $ = (id) => document.getElementById(id);
   const today = () => {
@@ -25,8 +27,11 @@
   let gastos = [];
   let pendientes = [];
   let workbookLoaded = false;
+  let workbook = null;
+  let saveUncertain = false;
   let toastTimer = null;
   let exactPerson = null;
+  let detailPage = 0;
   let savedPeople = [];
   let personRows = [''];
   let personAmounts = [''];
@@ -72,6 +77,8 @@
   function clearSession() {
     session = {};
     workbookLoaded = false;
+    workbook = null;
+    saveUncertain = false;
     sessionStorage.removeItem(SESSION_KEY);
     savedPeople = [];
     renderSavedPeople();
@@ -104,6 +111,8 @@
     show('btnSettings', !login && !loading);
     show('btnLogout', !login && !loading);
     show('btnConfigBack', config && workbookLoaded);
+    show('btnCleanup', config && workbookLoaded);
+    show('cleanupInfo', config && workbookLoaded);
   }
   function showAppView(view) {
     currentView = view;
@@ -170,18 +179,33 @@
       throw new Error('No se pudo cargar la librería de Excel (SheetJS). Desactiva el bloqueador de anuncios o rastreadores para este sitio y recarga la página.');
     }
   }
-  function workbookBytes() {
+  function workbookForSave() {
     requireXlsx();
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(gastos, { header: ['ID', 'Fecha', 'Descripcion', 'Total'] }), 'Gastos');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pendientes, { header: ['ID', 'Persona', 'Monto', 'Estado', 'FechaCobro'] }), 'Pendientes');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(savedPeople.map((name) => ({ Nombre: name })), { header: ['Nombre'] }), 'Personas');
-    return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    const source = workbook || XLSX.utils.book_new();
+    const wb = { ...source, SheetNames: [...source.SheetNames], Sheets: { ...source.Sheets } };
+    const replace = (name, data, header) => {
+      wb.Sheets[name] = XLSX.utils.json_to_sheet(data, { header });
+      if (!wb.SheetNames.includes(name)) wb.SheetNames.push(name);
+    };
+    replace('Gastos', gastos, ['ID', 'Fecha', 'Descripcion', 'Total']);
+    replace('Pendientes', pendientes, ['ID', 'Persona', 'Monto', 'Estado', 'FechaCobro']);
+    replace('Personas', savedPeople.map((name) => ({ Nombre: name })), ['Nombre']);
+    return wb;
   }
   async function saveFile() {
-    await api(`${DRIVE_UPLOAD}/${session.fileId}?uploadType=media`, {
-      method: 'PATCH', headers: { 'Content-Type': XLSX_MIME }, body: workbookBytes(),
-    });
+    if (saveUncertain) throw new Error('El resultado del guardado anterior es incierto. Revisa el archivo en Drive y vuelve a abrirlo desde Configuración antes de guardar.');
+    const wb = workbookForSave();
+    const bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    try {
+      await api(`${DRIVE_UPLOAD}/${session.fileId}?uploadType=media`, {
+        method: 'PATCH', headers: { 'Content-Type': XLSX_MIME }, body: bytes,
+      });
+    } catch (e) {
+      if (!session.token) throw e;
+      saveUncertain = true;
+      throw new Error(`${e.message}. No se pudo confirmar si Drive guardó el cambio; revisa el archivo y vuelve a abrirlo desde Configuración.`);
+    }
+    workbook = wb;
   }
   async function loadFile() {
     requireXlsx();
@@ -192,12 +216,14 @@
     pendientes = rows('Pendientes');
     pendientes.forEach((p) => { p.Monto = Number(p.Monto); });
     savedPeople = rows('Personas').map((row) => String(row.Nombre || '').trim()).filter(Boolean);
+    workbook = wb;
+    saveUncertain = false;
   }
 
   // Abre (o crea si no existe) el archivo configurado y muestra la app.
   async function openWorkbook(fileName) {
     requireXlsx();
-    const previous = { fileName: session.fileName, fileId: session.fileId, gastos, pendientes, savedPeople };
+    const previous = { fileName: session.fileName, fileId: session.fileId, gastos, pendientes, savedPeople, workbook, saveUncertain };
     let migrationWarning = '';
     try {
       session.fileName = fileName;
@@ -208,6 +234,8 @@
         gastos = [];
         pendientes = [];
         savedPeople = [];
+        workbook = null;
+        saveUncertain = false;
         session.fileId = await createFile(fileName);
         await saveFile();
       }
@@ -220,6 +248,8 @@
         gastos = previous.gastos;
         pendientes = previous.pendientes;
         savedPeople = previous.savedPeople;
+        workbook = previous.workbook;
+        saveUncertain = saveUncertain || previous.saveUncertain;
       }
       throw e;
     }
@@ -412,6 +442,7 @@
   function render() {
     const by = Logic.pendingByPerson(pendientes);
     $('pendingTotal').textContent = Object.values(by).reduce((sum, amount) => Logic.round2(sum + amount), 0).toFixed(2);
+    show('largeDataWarning', pendientes.length >= LARGE_RECORD_COUNT);
     $('byPerson').innerHTML = '<thead><tr><th>Persona</th><th>Pendiente</th></tr></thead><tbody>' +
       (Object.entries(by).map(([p, m], i) => `<tr class="person-row-link" role="link" tabindex="0" data-person-index="${i}" aria-label="Ver pendientes de ${esc(p)}"><td>${esc(p)}</td><td>${m.toFixed(2)}</td></tr>`).join('') ||
         '<tr><td colspan="2">Sin pendientes 🎉</td></tr>') + '</tbody>';
@@ -420,22 +451,33 @@
   function renderDetails() {
     const gastoById = Object.fromEntries(gastos.map((g) => [g.ID, g]));
     const filters = { status: $('filterStatus').value, from: $('filterFrom').value, to: $('filterTo').value,
+      collectedFrom: $('filterCollectedFrom').value, collectedTo: $('filterCollectedTo').value,
       person: $('filterPerson').value, exactPerson };
     const rows = pendientes.map((p, i) => ({ p, i, gasto: gastoById[p.ID] || {} }))
       .filter(({ p, gasto }) => Logic.matchesPayment(p, gasto, filters));
     $('detailTotal').textContent = rows.reduce((sum, { p }) => Logic.round2(sum + Number(p.Monto)), 0).toFixed(2);
-    $('detail').innerHTML = '<thead><tr><th>Fecha</th><th>Gasto</th><th>Persona</th><th>Monto</th><th>Estado</th><th></th></tr></thead><tbody>' +
-      (rows.map(({ p, i, gasto: g }) => {
+    const pageCount = Math.max(1, Math.ceil(rows.length / DETAIL_PAGE_SIZE));
+    detailPage = Math.min(detailPage, pageCount - 1);
+    const pageRows = rows.slice(detailPage * DETAIL_PAGE_SIZE, (detailPage + 1) * DETAIL_PAGE_SIZE);
+    $('detailPageInfo').textContent = `Página ${detailPage + 1} de ${pageCount} · ${rows.length} pagos`;
+    $('btnDetailPrevious').disabled = detailPage === 0;
+    $('btnDetailNext').disabled = detailPage >= pageCount - 1;
+    $('detail').innerHTML = '<thead><tr><th>Fecha</th><th>Gasto</th><th>Persona</th><th>Monto</th><th>Estado</th><th>Fecha de cobro</th><th></th></tr></thead><tbody>' +
+      (pageRows.map(({ p, i, gasto: g }) => {
         const action = p.Estado === 'Pendiente'
-          ? `<button class="btn btn-secondary btn-small" data-i="${i}" type="button">Marcar cobrado</button>` : '';
+          ? `<button class="btn btn-secondary btn-small" data-i="${i}" type="button">Marcar cobrado</button>`
+          : p.Estado === 'Cobrado' ? `<button class="btn btn-secondary btn-small" data-undo="${i}" type="button">Revertir cobro</button>` : '';
         return `<tr><td>${esc(g.Fecha || '')}</td><td>${esc(g.Descripcion || '')}</td><td>${esc(p.Persona)}</td>` +
-          `<td>${Number(p.Monto).toFixed(2)}</td><td>${badge(p.Estado)}</td><td>${action}</td></tr>`;
-      }).join('') || '<tr><td colspan="6">No hay pagos que coincidan con los filtros.</td></tr>') + '</tbody>';
+          `<td>${Number(p.Monto).toFixed(2)}</td><td>${badge(p.Estado)}</td><td>${esc(p.FechaCobro || '')}</td><td>${action}</td></tr>`;
+      }).join('') || '<tr><td colspan="7">No hay pagos que coincidan con los filtros.</td></tr>') + '</tbody>';
   }
   function openDetails(person = null) {
+    detailPage = 0;
     $('filterStatus').value = 'Pendiente';
     $('filterFrom').value = '';
     $('filterTo').value = '';
+    $('filterCollectedFrom').value = '';
+    $('filterCollectedTo').value = '';
     $('filterPerson').value = person || '';
     exactPerson = person;
     renderDetails();
@@ -479,9 +521,38 @@
   }
   async function collect(index) {
     const p = pendientes[index];
+    const previous = pendientes;
+    pendientes = pendientes.map((payment) => ({ ...payment }));
     Logic.markCollected(pendientes, p.ID, p.Persona, today());
-    await saveFile();
+    try { await saveFile(); }
+    catch (e) { pendientes = previous; throw e; }
     render();
+  }
+  async function undoCollection(index) {
+    if (!window.confirm('¿Revertir este cobro y volver a marcarlo como pendiente?')) return;
+    const previous = pendientes;
+    pendientes = pendientes.map((payment, i) => i === index ? { ...payment, Estado: 'Pendiente', FechaCobro: '' } : payment);
+    try { await saveFile(); }
+    catch (e) { pendientes = previous; throw e; }
+    render();
+    toast('Cobro revertido.', true);
+  }
+  async function cleanupCollected() {
+    if (!workbookLoaded) throw new Error('Primero abre un archivo de Excel.');
+    const cutoff = Logic.threeMonthsBefore(new Date());
+    const removed = pendientes.filter((payment) => Logic.oldCollected(payment, cutoff));
+    if (!removed.length) return toast('No hay cobros con más de tres meses para eliminar.');
+    if (!window.confirm(`Archivo abierto: ${session.fileName}. Se eliminarán ${removed.length} cobros anteriores al ${cutoff} y los gastos que queden sin pagos. Esta acción no se puede deshacer desde la aplicación. Haz primero un respaldo manual del Excel en Drive. ¿Continuar?`)) return;
+    const previousPayments = pendientes;
+    const previousExpenses = gastos;
+    const removedIds = new Set(removed.map((payment) => payment.ID));
+    pendientes = pendientes.filter((payment) => !Logic.oldCollected(payment, cutoff));
+    const remainingIds = new Set(pendientes.map((payment) => payment.ID));
+    gastos = gastos.filter((expense) => !removedIds.has(expense.ID) || remainingIds.has(expense.ID));
+    try { await saveFile(); }
+    catch (e) { pendientes = previousPayments; gastos = previousExpenses; throw e; }
+    render();
+    toast(`Se eliminaron ${removed.length} cobros antiguos.`, true);
   }
 
   // ---------- Eventos ----------
@@ -502,6 +573,7 @@
     showScreen({ config: true });
   };
   $('btnConfigBack').onclick = () => { if (workbookLoaded) showAppView(currentView); };
+  $('btnCleanup').onclick = () => withBusy($('btnCleanup'), cleanupCollected);
   $('btnDetails').onclick = () => openDetails();
   function openPersonDetails(target) {
     const row = target.closest('[data-person-index]');
@@ -517,12 +589,15 @@
     ev.preventDefault();
     openPersonDetails(row);
   };
-  ['filterStatus', 'filterFrom', 'filterTo', 'filterPerson'].forEach((id) => {
+  ['filterStatus', 'filterFrom', 'filterTo', 'filterCollectedFrom', 'filterCollectedTo', 'filterPerson'].forEach((id) => {
     $(id).oninput = () => {
       if (id === 'filterPerson') exactPerson = null;
+      detailPage = 0;
       renderDetails();
     };
   });
+  $('btnDetailPrevious').onclick = () => { if (detailPage > 0) { detailPage--; renderDetails(); } };
+  $('btnDetailNext').onclick = () => { detailPage++; renderDetails(); };
   $('btnTheme').onclick = () => {
     const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     setTheme(theme);
@@ -584,6 +659,7 @@
   $('detail').onclick = (ev) => {
     const i = ev.target.dataset.i;
     if (i != null) withBusy(ev.target, () => collect(Number(i)));
+    else if (ev.target.dataset.undo != null) withBusy(ev.target, () => undoCollection(Number(ev.target.dataset.undo)));
   };
 
   // ---------- Inicio ----------

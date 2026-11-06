@@ -142,7 +142,7 @@ test('muestra login y un error si falla la restauración de la sesión', async (
   await flush();
   assert.equal(isHidden(app, 'loading'), true);
   assert.equal(isHidden(app, 'login'), false);
-  assert.equal(app.element('msg').textContent, 'Sin conexión');
+  assert.match(app.element('msg').textContent, /Sin conexión/);
 });
 
 test('una sesión rechazada vuelve al login y se elimina', async () => {
@@ -360,6 +360,18 @@ test('recuerda el archivo por cuenta y conserva el flujo de pagos y cobros', asy
   assert.equal(rows[0].Estado, 'Cobrado');
   assert.equal(rows[1].Estado, 'Pendiente');
 
+  app.element('filterStatus').value = 'Cobrado';
+  app.element('filterStatus').oninput();
+  assert.match(app.element('detail').innerHTML, /Revertir cobro/);
+  app.element('detail').onclick({ target: { dataset: { undo: '0' } } });
+  await flush();
+  assert.equal(app.element('pendingTotal').textContent, '20.00');
+  assert.equal(XLSX.utils.sheet_to_json(XLSX.read(bytes).Sheets.Pendientes)[0].Estado, 'Pendiente');
+  app.element('filterStatus').value = 'Pendiente';
+  app.element('filterStatus').oninput();
+  app.element('detail').onclick({ target: { dataset: { i: '0' } } });
+  await flush();
+
   app.element('btnLogout').onclick();
   await signIn();
   assert.equal(isHidden(app, 'summary'), false);
@@ -532,9 +544,12 @@ test('mantiene los importes manuales y revierte un gasto si falla el guardado', 
   app.element('total').value = '10';
   app.element('btnAdd').onclick();
   await flush();
-  assert.equal(app.element('msg').textContent, 'Sin conexión');
+  assert.match(app.element('msg').textContent, /Sin conexión.*no se pudo confirmar/i);
   assert.equal(isHidden(app, 'expenseForm'), false);
   fail = false;
+  app.element('btnSettings').onclick();
+  app.element('configForm').onsubmit({ preventDefault() {} });
+  await flush();
   app.element('btnAdd').onclick();
   await flush();
   const saved = XLSX.read(bytes);
@@ -647,9 +662,15 @@ test('administra personas en Excel, evita duplicados y conserva pagos al elimina
   fail = true;
   app.element('personForm').onsubmit({ preventDefault() {} });
   await flush();
-  assert.equal(app.element('msg').textContent, 'Sin conexión');
+  assert.match(app.element('msg').textContent, /Sin conexión.*no se pudo confirmar/i);
   assert.match(app.element('personList').innerHTML, /Ana/);
   fail = false;
+  app.element('btnSettings').onclick();
+  app.element('configForm').onsubmit({ preventDefault() {} });
+  await flush();
+  app.element('btnManagePeople').onclick();
+  app.element('personList').onclick({ target: { dataset: { editPerson: '0' } } });
+  app.element('personName').value = 'María';
   app.element('personForm').onsubmit({ preventDefault() {} });
   await flush();
   let saved = XLSX.read(bytes);
@@ -662,4 +683,170 @@ test('administra personas en Excel, evita duplicados y conserva pagos al elimina
   assert.equal(XLSX.utils.sheet_to_json(saved.Sheets.Pendientes)[0].Persona, 'María');
   app.element('btnPeopleBack').onclick();
   assert.match(app.element('byPerson').innerHTML, /María/);
+});
+
+test('limpia solo cobros antiguos y conserva gastos con pagos y hojas adicionales', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+    { ID: '1', Descripcion: 'mixto' }, { ID: '2', Descripcion: 'antiguo' }, { ID: '3', Descripcion: 'reciente' },
+  ]), 'Gastos');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+    { ID: '1', Persona: 'Ana', Monto: 2, Estado: 'Cobrado', FechaCobro: '2026-01-01' },
+    { ID: '1', Persona: 'Luis', Monto: 3, Estado: 'Pendiente' },
+    { ID: '2', Persona: 'Ana', Monto: 4, Estado: 'Cobrado', FechaCobro: '2026-02-01' },
+    { ID: '3', Persona: 'Ana', Monto: 5, Estado: 'Cobrado', FechaCobro: '2026-10-01' },
+    { ID: '3', Persona: 'Luis', Monto: 6, Estado: 'Cobrado', FechaCobro: 'invalida' },
+  ]), 'Pendientes');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Datos'], ['conservar']]), 'Extra');
+  let bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  let fail = true;
+  const fetch = async (url, opts = {}) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: '123' }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: 'id' }] }) };
+    if (opts.method === 'PATCH') {
+      if (fail) throw new Error('Sin conexión');
+      bytes = opts.body;
+      return { ok: true };
+    }
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  class FixedDate extends Date {
+    constructor(...args) { super(...(args.length ? args : [2026, 10, 6])); }
+  }
+  const app = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic, Date: FixedDate });
+  await flush();
+  app.element('btnSettings').onclick();
+  assert.equal(isHidden(app, 'btnCleanup'), false);
+  app.element('btnCleanup').onclick();
+  await flush();
+  assert.match(app.element('msg').textContent, /Sin conexión/);
+  assert.equal(XLSX.utils.sheet_to_json(XLSX.read(bytes).Sheets.Pendientes).length, 5);
+  fail = false;
+  app.element('configForm').onsubmit({ preventDefault() {} });
+  await flush();
+  app.element('btnSettings').onclick();
+  app.element('btnCleanup').onclick();
+  await flush();
+  const result = XLSX.read(bytes);
+  assert.deepEqual(XLSX.utils.sheet_to_json(result.Sheets.Pendientes).map((row) => row.Persona), ['Luis', 'Ana', 'Luis']);
+  assert.deepEqual(XLSX.utils.sheet_to_json(result.Sheets.Gastos).map((row) => row.ID), ['1', '3']);
+  assert.equal(result.Sheets.Extra.A2.v, 'conservar');
+  assert.match(app.element('msg').textContent, /2 cobros antiguos/);
+});
+
+test('si falla el cobro no se registra en memoria ni en un guardado posterior', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ ID: '1', Fecha: '2026-01-01', Descripcion: 'Gasto' }]), 'Gastos');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ ID: '1', Persona: 'Ana', Monto: 10, Estado: 'Pendiente' }]), 'Pendientes');
+  let bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  let fail = true;
+  const fetch = async (url, opts = {}) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: '123' }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: 'id' }] }) };
+    if (opts.method === 'PATCH') {
+      if (fail) throw new Error('Sin conexión');
+      bytes = opts.body;
+      return { ok: true };
+    }
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  const app = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic });
+  await flush();
+  app.element('btnDetails').onclick();
+  app.element('detail').onclick({ target: { dataset: { i: '0' } } });
+  await flush();
+  assert.match(app.element('msg').textContent, /Sin conexión/);
+  assert.equal(app.element('pendingTotal').textContent, '10.00');
+  fail = false;
+  app.element('btnManagePeople').onclick();
+  app.element('personName').value = 'Luis';
+  app.element('personForm').onsubmit({ preventDefault() {} });
+  await flush();
+  assert.match(app.element('msg').textContent, /resultado del guardado anterior es incierto/i);
+  app.element('btnSettings').onclick();
+  app.element('configForm').onsubmit({ preventDefault() {} });
+  await flush();
+  app.element('btnManagePeople').onclick();
+  app.element('personName').value = 'Luis';
+  app.element('personForm').onsubmit({ preventDefault() {} });
+  await flush();
+  assert.equal(XLSX.utils.sheet_to_json(XLSX.read(bytes).Sheets.Pendientes)[0].Estado, 'Pendiente');
+});
+
+test('advierte desde 1000 pagos y pagina sin alterar el total filtrado', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ ID: '1', Fecha: '2026-01-01' }]), 'Gastos');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(Array.from({ length: 1000 }, (_, i) => ({
+    ID: '1', Persona: `Persona ${i}`, Monto: 0.1, Estado: 'Pendiente',
+  }))), 'Pendientes');
+  const bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  const fetch = async (url) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: '123' }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: 'id' }] }) };
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  const app = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic });
+  await flush();
+  assert.equal(isHidden(app, 'largeDataWarning'), false);
+  app.element('btnDetails').onclick();
+  assert.equal(app.element('detailTotal').textContent, '100.00');
+  assert.match(app.element('detailPageInfo').textContent, /Página 1 de 20/);
+  assert.match(app.element('detail').innerHTML, /Persona 49/);
+  assert.doesNotMatch(app.element('detail').innerHTML, /Persona 50/);
+  app.element('btnDetailNext').onclick();
+  assert.match(app.element('detailPageInfo').textContent, /Página 2 de 20/);
+  assert.match(app.element('detail').innerHTML, /Persona 50/);
+  assert.equal(app.element('detailTotal').textContent, '100.00');
+  app.element('filterPerson').value = 'Persona 99';
+  app.element('filterPerson').oninput();
+  assert.match(app.element('detailPageInfo').textContent, /Página 1 de 1/);
+  assert.equal(app.element('detailTotal').textContent, '1.10');
+});
+
+test('impide sobrescribir un cobro aceptado por Drive cuando se pierde la respuesta', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ ID: '1', Fecha: '2026-01-01' }]), 'Gastos');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ ID: '1', Persona: 'Ana', Monto: 10, Estado: 'Pendiente' }]), 'Pendientes');
+  let bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  let writes = 0;
+  const fetch = async (url, opts = {}) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: '123' }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: 'id' }] }) };
+    if (opts.method === 'PATCH') {
+      writes++;
+      bytes = opts.body;
+      if (writes === 1) throw new Error('Tiempo agotado');
+      return { ok: true };
+    }
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  const app = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic });
+  await flush();
+  app.element('btnDetails').onclick();
+  app.element('detail').onclick({ target: { dataset: { i: '0' } } });
+  await flush();
+  assert.match(app.element('msg').textContent, /no se pudo confirmar/i);
+  app.element('btnManagePeople').onclick();
+  app.element('personName').value = 'Luis';
+  app.element('personForm').onsubmit({ preventDefault() {} });
+  await flush();
+  assert.equal(writes, 1);
+  app.element('btnSettings').onclick();
+  app.element('configForm').onsubmit({ preventDefault() {} });
+  await flush();
+  assert.equal(app.element('pendingTotal').textContent, '0.00');
+  app.element('btnManagePeople').onclick();
+  app.element('personName').value = 'Luis';
+  app.element('personForm').onsubmit({ preventDefault() {} });
+  await flush();
+  assert.equal(writes, 2);
+  assert.equal(XLSX.utils.sheet_to_json(XLSX.read(bytes).Sheets.Pendientes)[0].Estado, 'Cobrado');
 });

@@ -7,10 +7,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://accounts.google.com; style-src 'self' https://accounts.google.com; connect-src 'self' https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com; img-src 'self' data: https://*.googleusercontent.com; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <title>Control de pagos pendientes</title>
 <link rel="icon" type="image/png" sizes="192x192" href="icons/logo-192.png">
-<link rel="manifest" href="manifest.webmanifest?v=1.3.4">
+<link rel="manifest" href="manifest.webmanifest?v=1.4.0">
 <link rel="apple-touch-icon" href="icons/logo-192.png">
-<link rel="stylesheet" href="styles.css?v=1.3.4">
-<script src="startup.js?v=1.3.4"></script>
+<link rel="stylesheet" href="styles.css?v=1.4.0">
+<script src="startup.js?v=1.4.0"></script>
 </head>
 <body>
 <header id="topbar" class="topbar">
@@ -28,6 +28,7 @@
   </div>
   <div class="notification-slot">
     <div id="msg" class="toast hidden" role="status" aria-live="polite"></div>
+    <span class="notification-placeholder">Todo al día</span>
   </div>
 </header>
 
@@ -53,6 +54,7 @@
     <div class="view-actions">
       <button id="btnSave" class="btn" type="submit" form="configForm">Guardar y abrir</button>
       <button id="btnConfigBack" class="btn btn-secondary hidden" type="button">Volver al resumen</button>
+      <button id="btnCleanup" class="btn btn-secondary hidden" type="button">Eliminar cobros antiguos</button>
     </div>
     <p class="section-description">Elige el archivo de Excel que usarás para guardar tus gastos.</p>
     <form id="configForm" autocomplete="off" novalidate>
@@ -60,6 +62,7 @@
       <input type="text" id="fileName" maxlength="100" autocomplete="off">
       <p class="hint">Si no existe, se crea automáticamente. Solo se accede a archivos creados por esta app (permiso mínimo <em>drive.file</em>).</p>
     </form>
+    <p id="cleanupInfo" class="hint hidden">Se recomienda conservar como máximo un año de historial y respaldar manualmente el Excel en Drive antes de limpiar. La limpieza elimina cobros de más de tres meses del archivo abierto; los pendientes se conservan.</p>
   </section>
 
   <section id="app" class="hidden">
@@ -71,6 +74,7 @@
         <button id="btnManagePeople" class="btn btn-secondary" type="button">Administrar personas</button>
       </div>
       <p class="section-description">Consulta cuánto está pendiente por persona. <strong>Total pendiente: <span id="pendingTotal">0.00</span></strong></p>
+      <p id="largeDataWarning" class="data-warning hidden" role="status">Este archivo tiene al menos 1,000 pagos. Para mantenerlo manejable, considera limpiar cobros antiguos en Configuración y respalda manualmente el Excel antes de hacerlo. Se recomienda conservar como máximo un año de historial.</p>
       <div class="table-wrap"><table id="byPerson"></table></div>
     </section>
     <section id="managePeople" class="card hidden">
@@ -129,23 +133,30 @@
         <div><label for="filterStatus">Estado</label><select id="filterStatus" autocomplete="off"><option value="Pendiente">Pendientes</option><option value="Cobrado">Cobrados</option><option value="">Todos</option></select></div>
         <div><label for="filterFrom">Fecha del gasto desde</label><input id="filterFrom" type="date" autocomplete="off"></div>
         <div><label for="filterTo">Fecha del gasto hasta</label><input id="filterTo" type="date" autocomplete="off"></div>
+        <div><label for="filterCollectedFrom">Fecha de cobro desde</label><input id="filterCollectedFrom" type="date" autocomplete="off"></div>
+        <div><label for="filterCollectedTo">Fecha de cobro hasta</label><input id="filterCollectedTo" type="date" autocomplete="off"></div>
         <div><label for="filterPerson">Persona</label><input id="filterPerson" type="text" list="savedPeople" autocomplete="off" placeholder="Buscar por nombre"></div>
       </div>
       <div class="table-wrap"><table id="detail"></table></div>
+      <div class="pagination" aria-label="Paginación de pagos">
+        <button id="btnDetailPrevious" class="btn btn-secondary btn-small" type="button">Anterior</button>
+        <span id="detailPageInfo" aria-live="polite"></span>
+        <button id="btnDetailNext" class="btn btn-secondary btn-small" type="button">Siguiente</button>
+      </div>
     </section>
   </section>
 </main>
 
 <footer class="site-footer">
   <span>Control de pagos pendientes · Creado por Alexis Mendez</span>
-  <span>Versión 1.3.4</span>
+  <span>Versión 1.4.0</span>
 </footer>
 
 <script src="vendor/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="config.js?v=1.3.4"></script>
-<script src="logic.js?v=1.3.4"></script>
-<script src="app.js?v=1.3.4"></script>
+<script src="config.js?v=1.4.0"></script>
+<script src="logic.js?v=1.4.0"></script>
+<script src="app.js?v=1.4.0"></script>
 <noscript><p class="startup-error">Activa JavaScript para usar esta aplicación.</p></noscript>
 </body>
 </html>

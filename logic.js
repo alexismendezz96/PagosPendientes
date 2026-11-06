@@ -5,6 +5,27 @@
   const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
   const personKey = (name) => String(name || '').trim().normalize('NFC').toLowerCase();
 
+  function threeMonthsBefore(date) {
+    const year = date.getFullYear();
+    const month = date.getMonth() - 3;
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const cutoff = new Date(year, month, Math.min(date.getDate(), lastDay));
+    return [cutoff.getFullYear(), String(cutoff.getMonth() + 1).padStart(2, '0'), String(cutoff.getDate()).padStart(2, '0')].join('-');
+  }
+
+  function validIsoDate(value) {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(0);
+    date.setUTCHours(0, 0, 0, 0);
+    date.setUTCFullYear(year, month - 1, day);
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  }
+
+  function oldCollected(payment, cutoff) {
+    return payment.Estado === 'Cobrado' && validIsoDate(payment.FechaCobro) && payment.FechaCobro < cutoff;
+  }
+
   // Divide el total en partes iguales (en centavos) entre las personas; el resto se reparte de a 1 centavo.
   function splitEqual(total, people) {
     if (!people.length) throw new Error('Se requiere al menos una persona');
@@ -62,14 +83,17 @@
     });
   }
 
-  function matchesPayment(payment, expense, { status, from, to, person, exactPerson }) {
+  function matchesPayment(payment, expense, { status, from, to, collectedFrom, collectedTo, person, exactPerson }) {
     const date = String(expense.Fecha || '');
+    const collected = String(payment.FechaCobro || '');
     const name = String(payment.Persona || '');
     const query = personKey(person);
     return (!status || payment.Estado === status) &&
       (!from || (!!date && date >= from)) && (!to || (!!date && date <= to)) &&
+      (!(collectedFrom || collectedTo) || (validIsoDate(collected) &&
+        (!collectedFrom || collected >= collectedFrom) && (!collectedTo || collected <= collectedTo))) &&
       (exactPerson !== null ? personKey(name) === personKey(exactPerson) : personKey(name).includes(query));
   }
 
-  return { splitEqual, manualSplit, buildExpense, pendingByPerson, markCollected, matchesPayment, round2, personKey };
+  return { splitEqual, manualSplit, buildExpense, pendingByPerson, markCollected, matchesPayment, round2, personKey, threeMonthsBefore, oldCollected };
 });

@@ -46,7 +46,7 @@ test('la caché contiene los mismos recursos versionados que la página', () => 
   const html = fs.readFileSync(require.resolve('../index.html'), 'utf8');
   const worker = fs.readFileSync(require.resolve('../service-worker.js'), 'utf8');
   for (const resource of ['styles.css', 'startup.js', 'config.js', 'logic.js', 'app.js', 'manifest.webmanifest']) {
-    const url = `${resource}?v=1.3.4`;
+    const url = `${resource}?v=1.4.0`;
     assert.ok(html.includes(url), url);
     assert.ok(worker.includes(`'${url}'`), url);
   }
@@ -62,6 +62,14 @@ test('el filtro de persona usa las sugerencias del Excel', () => {
     assert.match(html, new RegExp(`id="${id}"[^>]*autocomplete="off"`), id);
   }
   assert.match(html, /id="filterStatus" autocomplete="off"/);
+});
+
+test('el texto predeterminado aparece solo cuando no hay notificación', () => {
+  const html = fs.readFileSync(require.resolve('../index.html'), 'utf8');
+  const css = fs.readFileSync(require.resolve('../styles.css'), 'utf8');
+  assert.match(html, /id="msg"[^>]*><\/div>\s*<span class="notification-placeholder">Todo al día<\/span>/);
+  assert.match(css, /\.notification-placeholder\s*\{\s*display:\s*none/);
+  assert.match(css, /#msg\.hidden\s*\+\s*\.notification-placeholder\s*\{\s*display:\s*inline/);
 });
 
 test('las acciones de cada pantalla siguen a su título y preceden al contenido', () => {

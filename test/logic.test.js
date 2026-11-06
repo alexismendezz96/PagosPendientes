@@ -29,6 +29,10 @@ test('filtros combinan estado, fechas del gasto y persona', () => {
   assert.strictEqual(L.matchesPayment(p, {}, filters), false);
   assert.strictEqual(L.matchesPayment(p, g, { ...filters, person: 'Ana', exactPerson: 'Ana' }), false);
   assert.strictEqual(L.matchesPayment(p, g, { ...filters, person: '', status: '', from: '', to: '' }), true);
+  const collected = { ...p, Estado: 'Cobrado', FechaCobro: '2026-03-20' };
+  assert.strictEqual(L.matchesPayment(collected, g, { ...filters, status: 'Cobrado', collectedFrom: '2026-03-20', collectedTo: '2026-03-20' }), true);
+  assert.strictEqual(L.matchesPayment(collected, g, { ...filters, status: 'Cobrado', collectedFrom: '2026-03-21' }), false);
+  assert.strictEqual(L.matchesPayment(p, g, { ...filters, collectedFrom: '2026-03-01' }), false);
 });
 
 test('agrupa y filtra personas sin distinguir mayúsculas ni normalización Unicode', () => {
@@ -41,4 +45,18 @@ test('agrupa y filtra personas sin distinguir mayúsculas ni normalización Unic
   assert.strictEqual(L.personKey(' MARÍA '), L.personKey('mari\u0301a'));
   L.markCollected(rows, '2', 'Ana', '2026-01-01');
   assert.strictEqual(rows[1].Estado, 'Cobrado');
+});
+
+test('la limpieza usa tres meses de calendario y solo fechas de cobro válidas anteriores al límite', () => {
+  const cutoff = L.threeMonthsBefore(new Date(2026, 4, 31));
+  assert.strictEqual(cutoff, '2026-02-28');
+  assert.strictEqual(L.threeMonthsBefore(new Date(2024, 4, 31)), '2024-02-29');
+  assert.strictEqual(L.threeMonthsBefore(new Date(2026, 0, 15)), '2025-10-15');
+  assert.strictEqual(L.oldCollected({ Estado: 'Cobrado', FechaCobro: '2026-02-27' }, cutoff), true);
+  for (const payment of [
+    { Estado: 'Cobrado', FechaCobro: '2026-02-28' },
+    { Estado: 'Cobrado', FechaCobro: '2026-02-30' },
+    { Estado: 'Cobrado', FechaCobro: '' },
+    { Estado: 'Pendiente', FechaCobro: '2026-01-01' },
+  ]) assert.strictEqual(L.oldCollected(payment, cutoff), false);
 });
