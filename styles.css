@@ -36,8 +36,8 @@ main { max-width: 860px; min-height: calc(100vh - 116px); margin: 0 auto; paddin
 .site-footer { max-width: 860px; margin: 0 auto; padding: 1rem; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--border); }
 .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.25rem; margin: 1rem 0; animation: fadeUp .35s ease both; }
 .card h2 { margin: 0 0 .75rem; font-size: 1.05rem; }
-.section-description, section > .hint { background: var(--info-bg); color: var(--info-text); border: 1px solid var(--info-border); border-radius: 1rem; padding: .6rem .9rem; }
-.section-description { margin: 0 0 1rem; }
+.section-description { color: var(--muted); margin: 0 0 1rem; }
+.hint.icon-legend { background: var(--info-bg); color: var(--info-text); border: 1px solid var(--info-border); border-radius: 1rem; padding: .6rem .9rem; }
 .data-warning { padding: .75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
 .actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }
 .actions .btn { margin-top: 0; }

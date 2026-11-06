@@ -46,7 +46,7 @@ test('la caché contiene los mismos recursos versionados que la página', () => 
   const html = fs.readFileSync(require.resolve('../index.html'), 'utf8');
   const worker = fs.readFileSync(require.resolve('../service-worker.js'), 'utf8');
   for (const resource of ['styles.css', 'startup.js', 'config.js', 'logic.js', 'app.js', 'manifest.webmanifest']) {
-    const url = `${resource}?v=1.5.4`;
+    const url = `${resource}?v=1.5.5`;
     assert.ok(html.includes(url), url);
     assert.ok(worker.includes(`'${url}'`), url);
   }
@@ -55,11 +55,16 @@ test('la caché contiene los mismos recursos versionados que la página', () => 
 test('la leyenda del resumen explica únicamente los iconos de personas', () => {
   const html = fs.readFileSync(require.resolve('../index.html'), 'utf8');
   const summary = html.slice(html.indexOf('<section id="summary"'), html.indexOf('</section>', html.indexOf('<section id="summary"')));
-  const hint = summary.match(/<p class="hint">([\s\S]*?)<\/p>/);
+  const hint = summary.match(/<p class="hint icon-legend">([\s\S]*?)<\/p>/);
   assert.ok(hint);
   assert.match(hint[1], /Persona guardada/);
   assert.match(hint[1], /Persona no guardada/);
   assert.doesNotMatch(hint[1], /etiqueta|pendientes de al menos un mes/i);
+  assert.equal((html.match(/class="hint icon-legend"/g) || []).length, 1);
+  const css = fs.readFileSync(require.resolve('../styles.css'), 'utf8');
+  assert.match(css, /\.icon-legend\s*\{[^}]*background:\s*var\(--info-bg\)/);
+  assert.doesNotMatch(css, /\.section-description\s*\{[^}]*background:/);
+  assert.doesNotMatch(css, /section\s*>\s*\.hint/);
 });
 
 test('el filtro de persona usa las sugerencias del Excel', () => {
