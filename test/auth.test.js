@@ -13,6 +13,7 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
   const tokenClients = [];
   const timers = [];
   const mode = { value: 'equal' };
+  const modeInputs = [{}, {}];
   let revoked;
   const element = (id) => {
     if (!elements.has(id)) {
@@ -49,7 +50,7 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
       documentElement: { dataset: {}, style: { setProperty() {} } },
       getElementById: element,
       querySelector: () => mode,
-      querySelectorAll: () => [],
+      querySelectorAll: () => modeInputs,
     },
     navigator: {},
     sessionStorage: {
@@ -71,7 +72,7 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
     ...extras,
   };
   vm.runInNewContext(source, context);
-  return { element, data, preferences, tokenClients, timers, mode, document: context.document, window: context.window, revoked: () => revoked };
+  return { element, data, preferences, tokenClients, timers, mode, modeInputs, document: context.document, window: context.window, revoked: () => revoked };
 }
 
 const startLogin = (app) => app.element('btnLogin').onclick();
@@ -556,6 +557,62 @@ test('mantiene los importes manuales y revierte un gasto si falla el guardado', 
   const rows = XLSX.utils.sheet_to_json(saved.Sheets.Pendientes);
   assert.deepEqual(rows.map((row) => row.Monto), [3, 7]);
   assert.equal(XLSX.utils.sheet_to_json(saved.Sheets.Gastos).length, 1);
+});
+
+test('previsualiza el reparto uniforme y coincide con los importes guardados', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([]), 'Gastos');
+  let bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  const fetch = async (url, opts = {}) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: '123' }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: 'id' }] }) };
+    if (opts.method === 'PATCH') { bytes = opts.body; return { ok: true }; }
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  const app = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic });
+  await flush();
+  app.element('btnNewExpense').onclick();
+  assert.match(app.element('equalPreviewHint').textContent, /total válido/);
+  app.element('total').value = '10';
+  app.element('total').oninput();
+  app.element('peopleRows').oninput({ target: { dataset: { person: '0' }, value: 'Ana' } });
+  assert.match(app.element('equalPreviewList').innerHTML, /Ana: <strong>10\.00/);
+  app.element('btnAddPerson').onclick();
+  assert.equal(app.element('equalPreviewList').innerHTML, '');
+  app.element('peopleRows').oninput({ target: { dataset: { person: '1' }, value: 'ana' } });
+  assert.match(app.element('equalPreviewHint').textContent, /No repitas/);
+  app.element('peopleRows').oninput({ target: { dataset: { person: '1' }, value: 'Luis' } });
+  app.element('btnAddPerson').onclick();
+  app.element('peopleRows').oninput({ target: { dataset: { person: '2' }, value: '<Eva>' } });
+  assert.equal(app.element('equalPreviewList').innerHTML,
+    '<li>Ana: <strong>3.34</strong></li><li>Luis: <strong>3.33</strong></li><li>&lt;Eva&gt;: <strong>3.33</strong></li>');
+  app.element('total').value = '20';
+  app.element('total').oninput();
+  assert.match(app.element('equalPreviewList').innerHTML, /Ana: <strong>6\.67/);
+  app.element('peopleRows').onclick({ target: { dataset: { removePerson: '1' } } });
+  assert.match(app.element('equalPreviewList').innerHTML, /Ana: <strong>10\.00/);
+  app.element('btnAddPerson').onclick();
+  app.element('peopleRows').oninput({ target: { dataset: { person: '2' }, value: 'Luis' } });
+  app.mode.value = 'manual';
+  app.modeInputs[1].onchange();
+  assert.equal(isHidden(app, 'equalPreview'), true);
+  app.mode.value = 'equal';
+  app.modeInputs[0].onchange();
+  assert.equal(isHidden(app, 'equalPreview'), false);
+  app.element('total').value = '10';
+  app.element('total').oninput();
+  assert.equal(app.element('equalPreviewList').innerHTML,
+    '<li>Ana: <strong>3.34</strong></li><li>&lt;Eva&gt;: <strong>3.33</strong></li><li>Luis: <strong>3.33</strong></li>');
+  app.element('desc').value = 'Comida';
+  app.element('btnAdd').onclick();
+  await flush();
+  const saved = XLSX.utils.sheet_to_json(XLSX.read(bytes).Sheets.Pendientes);
+  assert.deepEqual(saved.map((row) => [row.Persona, row.Monto]), [['Ana', 3.34], ['<Eva>', 3.33], ['Luis', 3.33]]);
+  app.element('btnAnotherExpense').onclick();
+  assert.equal(app.element('equalPreviewList').innerHTML, '');
+  assert.match(app.element('equalPreviewHint').textContent, /total válido/);
 });
 
 test('migra personas antiguas una sola vez y conserva la copia si Drive falla', async () => {

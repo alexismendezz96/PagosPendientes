@@ -7,10 +7,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://accounts.google.com; style-src 'self' https://accounts.google.com; connect-src 'self' https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com; img-src 'self' data: https://*.googleusercontent.com; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <title>Control de pagos pendientes</title>
 <link rel="icon" type="image/png" sizes="192x192" href="icons/logo-192.png">
-<link rel="manifest" href="manifest.webmanifest?v=1.4.1">
+<link rel="manifest" href="manifest.webmanifest?v=1.4.2">
 <link rel="apple-touch-icon" href="icons/logo-192.png">
-<link rel="stylesheet" href="styles.css?v=1.4.1">
-<script src="startup.js?v=1.4.1"></script>
+<link rel="stylesheet" href="styles.css?v=1.4.2">
+<script src="startup.js?v=1.4.2"></script>
 </head>
 <body>
 <header id="topbar" class="topbar">
@@ -117,6 +117,10 @@
       <button id="btnAddPerson" class="btn btn-secondary btn-small" type="button">Agregar otra persona</button>
       <label class="choice"><input type="radio" name="mode" value="equal" autocomplete="off" checked> Dividir uniformemente</label>
       <label class="choice"><input type="radio" name="mode" value="manual" autocomplete="off"> Montos manuales</label>
+      <div id="equalPreview" class="hint" aria-live="polite">
+        <p id="equalPreviewHint"></p>
+        <ul id="equalPreviewList"></ul>
+      </div>
       <div id="manual" class="hidden"></div>
       <label class="choice"><input type="checkbox" id="cobrado" autocomplete="off"> Registrar como ya cobrado</label>
       </div>
@@ -150,14 +154,14 @@
 
 <footer class="site-footer">
   <span>Control de pagos pendientes · Creado por Alexis Mendez</span>
-  <span>Versión 1.4.1</span>
+  <span>Versión 1.4.2</span>
 </footer>
 
 <script src="vendor/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="config.js?v=1.4.1"></script>
-<script src="logic.js?v=1.4.1"></script>
-<script src="app.js?v=1.4.1"></script>
+<script src="config.js?v=1.4.2"></script>
+<script src="logic.js?v=1.4.2"></script>
+<script src="app.js?v=1.4.2"></script>
 <noscript><p class="startup-error">Activa JavaScript para usar esta aplicación.</p></noscript>
 </body>
 </html>

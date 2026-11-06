@@ -326,6 +326,7 @@
   const isManual = () => document.querySelector('input[name=mode]:checked').value === 'manual';
 
   const personKey = (name) => Logic.personKey(name);
+  const expensePeople = () => people().map((name) => savedPeople.find((saved) => personKey(saved) === personKey(name)) || name);
   async function migratePeople() {
     if (!session.googleSub) return '';
     const key = PEOPLE_KEY_PREFIX + session.googleSub;
@@ -428,6 +429,7 @@
     renderPeople();
     $('manual').innerHTML = '';
     show('manual', false);
+    renderEqualPreview();
     show('expenseForm', true);
     show('expenseSaved', false);
     show('expenseActions', true);
@@ -436,6 +438,26 @@
   function renderManual() {
     $('manual').innerHTML = personRows.map((p, i) => p.trim() ?
       `<label>${esc(p.trim())} <input type="number" step="0.01" min="0" autocomplete="off" data-i="${i}" value="${esc(personAmounts[i])}"></label>` : '').join('');
+  }
+  function renderEqualPreview() {
+    const manual = isManual();
+    show('equalPreview', !manual);
+    if (manual) return;
+    const total = Number($('total').value);
+    const names = people();
+    if (!Number.isFinite(total) || total <= 0 || !names.length || names.length !== personRows.length) {
+      $('equalPreviewHint').textContent = 'Ingresa un total válido y completa todas las personas para ver el reparto.';
+      $('equalPreviewList').innerHTML = '';
+      return;
+    }
+    if (new Set(names.map(personKey)).size !== names.length) {
+      $('equalPreviewHint').textContent = 'No repitas la misma persona para ver el reparto.';
+      $('equalPreviewList').innerHTML = '';
+      return;
+    }
+    $('equalPreviewHint').textContent = 'Importe estimado por persona:';
+    $('equalPreviewList').innerHTML = Logic.splitEqual(total, expensePeople())
+      .map(({ persona, monto }) => `<li>${esc(persona)}: <strong>${monto.toFixed(2)}</strong></li>`).join('');
   }
   function badge(estado) {
     return `<span class="badge ${estado === 'Pendiente' ? 'badge-pending' : 'badge-done'}">${esc(estado)}</span>`;
@@ -495,7 +517,7 @@
   // ---------- Acciones ----------
   async function addExpense() {
     const total = Number($('total').value);
-    const names = people().map((name) => savedPeople.find((saved) => personKey(saved) === personKey(name)) || name);
+    const names = expensePeople();
     const descripcion = $('desc').value.trim();
     if (!descripcion || !(total > 0)) throw new Error('Descripción y total válido son obligatorios.');
     if (!names.length || personRows.some((name) => !name.trim())) throw new Error('Completa el nombre de cada persona.');
@@ -654,13 +676,15 @@
   $('btnAdd').onclick = () => withBusy($('btnAdd'), addExpense);
   $('btnAnotherExpense').onclick = resetExpense;
   $('btnSavedBack').onclick = () => showAppView('summary');
-  $('btnAddPerson').onclick = () => { personRows.push(''); personAmounts.push(''); renderPeople(); };
+  $('total').oninput = renderEqualPreview;
+  $('btnAddPerson').onclick = () => { personRows.push(''); personAmounts.push(''); renderPeople(); renderEqualPreview(); };
   $('peopleRows').oninput = (ev) => {
     if (ev.target.dataset.person == null) return;
     const index = Number(ev.target.dataset.person);
     personRows[index] = ev.target.value;
     show('save-person-' + index, canSavePerson(ev.target.value));
     renderManual();
+    renderEqualPreview();
   };
   $('peopleRows').onclick = (ev) => {
     const { savePerson: saveIndex, removePerson } = ev.target.dataset;
@@ -669,15 +693,16 @@
       personAmounts.splice(Number(removePerson), 1);
       renderPeople();
       renderManual();
+      renderEqualPreview();
     } else if (saveIndex != null) {
-      withBusy(ev.target, async () => { await savePerson(personRows[Number(saveIndex)]); renderPeople(); });
+      withBusy(ev.target, async () => { await savePerson(personRows[Number(saveIndex)]); renderPeople(); renderEqualPreview(); });
     }
   };
   $('manual').oninput = (ev) => {
     if (ev.target.dataset.i != null) personAmounts[Number(ev.target.dataset.i)] = ev.target.value;
   };
   document.querySelectorAll('input[name=mode]').forEach((r) => {
-    r.onchange = () => { show('manual', isManual()); renderManual(); };
+    r.onchange = () => { show('manual', isManual()); renderManual(); renderEqualPreview(); };
   });
   $('detail').onclick = (ev) => {
     const i = ev.target.dataset.i;
