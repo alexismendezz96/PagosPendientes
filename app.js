@@ -411,6 +411,7 @@
   }
   function render() {
     const by = Logic.pendingByPerson(pendientes);
+    $('pendingTotal').textContent = Object.values(by).reduce((sum, amount) => Logic.round2(sum + amount), 0).toFixed(2);
     $('byPerson').innerHTML = '<thead><tr><th>Persona</th><th>Pendiente</th></tr></thead><tbody>' +
       (Object.entries(by).map(([p, m], i) => `<tr class="person-row-link" role="link" tabindex="0" data-person-index="${i}" aria-label="Ver pendientes de ${esc(p)}"><td>${esc(p)}</td><td>${m.toFixed(2)}</td></tr>`).join('') ||
         '<tr><td colspan="2">Sin pendientes 🎉</td></tr>') + '</tbody>';

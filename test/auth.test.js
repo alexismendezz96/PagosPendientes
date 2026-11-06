@@ -334,6 +334,7 @@ test('recuerda el archivo por cuenta y conserva el flujo de pagos y cobros', asy
   await flush();
   assert.equal(saved.get('pp_file_123'), 'mis-pagos.xlsx');
   assert.equal(isHidden(app, 'summary'), false);
+  assert.equal(app.element('pendingTotal').textContent, '0.00');
 
   app.element('btnNewExpense').onclick();
   app.element('desc').value = 'Almuerzo';
@@ -344,6 +345,7 @@ test('recuerda el archivo por cuenta y conserva el flujo de pagos y cobros', asy
   app.element('btnAdd').onclick();
   await flush();
   assert.match(app.element('byPerson').innerHTML, /Ana/);
+  assert.equal(app.element('pendingTotal').textContent, '20.00');
   assert.equal(isHidden(app, 'expenseForm'), true);
   assert.equal(isHidden(app, 'expenseSaved'), false);
   assert.equal(isHidden(app, 'expenseActions'), true);
@@ -352,6 +354,7 @@ test('recuerda el archivo por cuenta y conserva el flujo de pagos y cobros', asy
   app.element('btnDetails').onclick();
   app.element('detail').onclick({ target: { dataset: { i: '0' } } });
   await flush();
+  assert.equal(app.element('pendingTotal').textContent, '10.00');
   const workbook = XLSX.read(bytes);
   const rows = XLSX.utils.sheet_to_json(workbook.Sheets.Pendientes);
   assert.equal(rows[0].Estado, 'Cobrado');
@@ -566,6 +569,27 @@ test('migra personas antiguas una sola vez y conserva la copia si Drive falla', 
   const otherBrowser = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic });
   await flush();
   assert.match(otherBrowser.element('savedPeople').innerHTML, /Luis/);
+});
+
+test('el total del resumen incluye solo pendientes y conserva los centavos', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([]), 'Gastos');
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([
+    { ID: '1', Persona: 'Ana', Monto: 0.1, Estado: 'Pendiente' },
+    { ID: '2', Persona: 'Luis', Monto: 0.2, Estado: 'Pendiente' },
+    { ID: '3', Persona: 'Ana', Monto: 10, Estado: 'Cobrado' },
+  ]), 'Pendientes');
+  const bytes = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
+  const fetch = async (url) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: '123' }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: 'id' }] }) };
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  const app = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic });
+  await flush();
+  assert.equal(app.element('pendingTotal').textContent, '0.30');
 });
 
 test('administra personas en Excel, evita duplicados y conserva pagos al eliminar', async () => {
