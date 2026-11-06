@@ -10,6 +10,7 @@
   const SESSION_KEY = 'pp_session';
   const FILE_KEY_PREFIX = 'pp_file_';
   const PEOPLE_KEY_PREFIX = 'pp_people_';
+  const DRAFT_KEY_PREFIX = 'pp_draft_';
   const THEME_KEY = 'pp_theme';
   const TOAST_MS = 4000;
   const MAX_FILE_NAME = 100;
@@ -38,6 +39,7 @@
   let currentView = 'summary';
   let editingPerson = null;
   let busy = false;
+  let draftUncertain = false;
 
   // ---------- Sesión (sessionStorage: se borra al cerrar la pestaña) ----------
   function loadSession() {
@@ -327,6 +329,88 @@
 
   const personKey = (name) => Logic.personKey(name);
   const expensePeople = () => people().map((name) => savedPeople.find((saved) => personKey(saved) === personKey(name)) || name);
+  const draftKey = () => session.googleSub && session.fileId
+    ? DRAFT_KEY_PREFIX + session.googleSub + '_' + session.fileId : null;
+  function draftNotice(message) {
+    $('draftNotice').textContent = message;
+    show('draftNotice', !!message);
+  }
+  function expenseDraft() {
+    return {
+      description: $('desc').value, total: $('total').value, date: $('fecha').value,
+      collected: !!$('cobrado').checked, mode: isManual() ? 'manual' : 'equal',
+      people: [...personRows], amounts: [...personAmounts], uncertain: draftUncertain,
+    };
+  }
+  function hasDraft(draft) {
+    return !!(draft.description || draft.total || draft.date !== today() || draft.collected ||
+      draft.mode !== 'equal' || draft.people.length !== 1 || draft.people.some((name) => name) ||
+      draft.amounts.some((amount) => amount));
+  }
+  function saveDraft() {
+    const key = draftKey();
+    if (!key) {
+      draftNotice('No se puede guardar el borrador en este navegador sin identificar la cuenta y el archivo.');
+      return false;
+    }
+    try {
+      const draft = expenseDraft();
+      if (hasDraft(draft)) localStorage.setItem(key, JSON.stringify(draft));
+      else localStorage.removeItem(key);
+      draftNotice(draftUncertain ? 'El último guardado pudo haberse completado. Revisa el Excel antes de volver a guardar este borrador.' : hasDraft(draft) ? 'Borrador guardado solo en este navegador.' : '');
+      return true;
+    } catch (e) {
+      draftNotice('No se pudo guardar o borrar el borrador en este navegador; podría no recuperarse correctamente.');
+      return false;
+    }
+  }
+  function removeDraft() {
+    const key = draftKey();
+    if (!key) return true;
+    try { localStorage.removeItem(key); return true; }
+    catch (e) {
+      draftNotice('No se pudo borrar el borrador de este navegador.');
+      return false;
+    }
+  }
+  function restoreDraft() {
+    resetExpense();
+    const key = draftKey();
+    if (!key) {
+      draftNotice('No se puede recuperar el borrador sin identificar la cuenta y el archivo.');
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (!draft || typeof draft.description !== 'string' || typeof draft.total !== 'string' ||
+          typeof draft.date !== 'string' || typeof draft.collected !== 'boolean' ||
+          !['equal', 'manual'].includes(draft.mode) || !Array.isArray(draft.people) ||
+          !draft.people.length || draft.people.some((name) => typeof name !== 'string') ||
+          !Array.isArray(draft.amounts) || draft.amounts.length !== draft.people.length ||
+          draft.amounts.some((amount) => typeof amount !== 'string') || typeof draft.uncertain !== 'boolean') {
+        throw new Error('Borrador inválido');
+      }
+      $('desc').value = draft.description;
+      $('total').value = draft.total;
+      $('fecha').value = draft.date;
+      $('cobrado').checked = draft.collected;
+      document.querySelector(`input[name=mode][value=${draft.mode}]`).checked = true;
+      personRows = draft.people;
+      personAmounts = draft.amounts;
+      draftUncertain = draft.uncertain;
+      renderPeople();
+      renderManual();
+      show('manual', isManual());
+      renderEqualPreview();
+      draftNotice(draftUncertain
+        ? 'El último guardado pudo haberse completado. Revisa el Excel antes de volver a guardar este borrador.'
+        : 'Borrador recuperado de este navegador.');
+    } catch (e) {
+      draftNotice('No se pudo recuperar el borrador de este navegador.');
+    }
+  }
   async function migratePeople() {
     if (!session.googleSub) return '';
     const key = PEOPLE_KEY_PREFIX + session.googleSub;
@@ -419,6 +503,8 @@
     toast('Persona eliminada de la lista guardada.', true);
   }
   function resetExpense() {
+    draftUncertain = false;
+    draftNotice('');
     $('desc').value = '';
     $('total').value = '';
     $('fecha').value = today();
@@ -525,7 +611,18 @@
     const parts = isManual()
       ? Logic.manualSplit(total, names.map((p, i) => ({ persona: p, monto: Number(personAmounts[i] || 0) })))
       : Logic.splitEqual(total, names);
-    const e = Logic.buildExpense({ descripcion, total, fecha: $('fecha').value || today(), cobrado: $('cobrado').checked, parts });
+    const fecha = $('fecha').value || today();
+    const cobrado = $('cobrado').checked;
+    const summary = parts.map(({ persona, monto }) => `${persona}: ${monto.toFixed(2)}`).join('\n');
+    if (!window.confirm(`¿Guardar este gasto?\n\nDescripción: ${descripcion}\nFecha: ${fecha}\nTotal: ${Logic.round2(total).toFixed(2)}\nEstado: ${cobrado ? 'Cobrado' : 'Pendiente'}\nDivisión: ${isManual() ? 'Manual' : 'Uniforme'}\n\n${summary}`)) return;
+    if (draftUncertain && !window.confirm('El guardado anterior pudo haberse completado. Revisa el Excel para evitar un duplicado. ¿Confirmas que quieres guardar de nuevo?')) return;
+    const e = Logic.buildExpense({ descripcion, total, fecha, cobrado, parts });
+    const wasUncertain = draftUncertain;
+    draftUncertain = true;
+    if (!saveDraft() && !window.confirm('No se pudo actualizar el borrador en este navegador. Si existe una copia anterior podría reaparecer; verifica el Excel antes de volver a guardarla. ¿Continuar?')) {
+      draftUncertain = wasUncertain;
+      return;
+    }
     gastos.push(e.gasto);
     pendientes.push(...e.pendientes);
     try { await saveFile(); }
@@ -535,12 +632,13 @@
       throw error;
     }
     render();
+    const draftRemoved = removeDraft();
     resetExpense();
     show('expenseForm', false);
     show('expenseSaved', true);
     show('expenseActions', false);
     show('savedActions', true);
-    toast('Gasto guardado en Drive.', true);
+    toast(draftRemoved ? 'Gasto guardado en Drive.' : 'Gasto guardado en Drive, pero no se pudo borrar el borrador del navegador. Revisa antes de volver a guardarlo.', draftRemoved);
   }
   async function collect(index) {
     const p = pendientes[index];
@@ -591,12 +689,13 @@
     exactPerson = null;
     detailPage = 0;
     $('filterPerson').value = '';
+    const draftRemoved = removeDraft();
     resetExpense();
     resetPersonEditor();
     renderSavedPeople();
     renderPersonManager();
     render();
-    toast('Datos de la aplicación reiniciados en el Excel.', true);
+    toast(draftRemoved ? 'Datos de la aplicación reiniciados en el Excel.' : 'Excel reiniciado, pero no se pudo borrar el borrador del navegador.', draftRemoved);
   }
 
   // ---------- Eventos ----------
@@ -649,7 +748,7 @@
     try { localStorage.setItem(THEME_KEY, theme); }
     catch (e) { toast('No se pudo recordar el tema en este navegador.'); }
   };
-  $('btnNewExpense').onclick = () => { resetExpense(); showAppView('newExpense'); };
+  $('btnNewExpense').onclick = () => { restoreDraft(); showAppView('newExpense'); };
   $('btnManagePeople').onclick = () => { resetPersonEditor(); renderPersonManager(); showAppView('managePeople'); };
   $('btnPeopleBack').onclick = () => showAppView('summary');
   $('btnPersonCancel').onclick = resetPersonEditor;
@@ -668,7 +767,13 @@
     } else if (removePerson != null) withBusy(ev.target, () => deletePerson(Number(removePerson)));
   };
   $('btnDetailsBack').onclick = () => showAppView('summary');
-  $('btnExpenseBack').onclick = () => showAppView('summary');
+  $('btnExpenseBack').onclick = () => {
+    if (busy) return toast('Espera a que termine la operación en curso.');
+    if (hasDraft(expenseDraft()) && !window.confirm('Hay un pago sin guardar. Si sales, se descartará el borrador. ¿Volver al resumen?')) return;
+    if (!removeDraft() && !window.confirm('No se pudo borrar el borrador del navegador. Podría reaparecer más adelante. ¿Salir de todos modos?')) return;
+    resetExpense();
+    showAppView('summary');
+  };
   $('configForm').onsubmit = (ev) => {
     ev.preventDefault();
     withBusy($('btnSave'), async () => openWorkbook(normalizeFileName($('fileName').value)));
@@ -676,8 +781,11 @@
   $('btnAdd').onclick = () => withBusy($('btnAdd'), addExpense);
   $('btnAnotherExpense').onclick = resetExpense;
   $('btnSavedBack').onclick = () => showAppView('summary');
-  $('total').oninput = renderEqualPreview;
-  $('btnAddPerson').onclick = () => { personRows.push(''); personAmounts.push(''); renderPeople(); renderEqualPreview(); };
+  $('desc').oninput = saveDraft;
+  $('fecha').oninput = saveDraft;
+  $('cobrado').onchange = saveDraft;
+  $('total').oninput = () => { renderEqualPreview(); saveDraft(); };
+  $('btnAddPerson').onclick = () => { personRows.push(''); personAmounts.push(''); renderPeople(); renderEqualPreview(); saveDraft(); };
   $('peopleRows').oninput = (ev) => {
     if (ev.target.dataset.person == null) return;
     const index = Number(ev.target.dataset.person);
@@ -685,6 +793,7 @@
     show('save-person-' + index, canSavePerson(ev.target.value));
     renderManual();
     renderEqualPreview();
+    saveDraft();
   };
   $('peopleRows').onclick = (ev) => {
     const { savePerson: saveIndex, removePerson } = ev.target.dataset;
@@ -694,15 +803,16 @@
       renderPeople();
       renderManual();
       renderEqualPreview();
+      saveDraft();
     } else if (saveIndex != null) {
       withBusy(ev.target, async () => { await savePerson(personRows[Number(saveIndex)]); renderPeople(); renderEqualPreview(); });
     }
   };
   $('manual').oninput = (ev) => {
-    if (ev.target.dataset.i != null) personAmounts[Number(ev.target.dataset.i)] = ev.target.value;
+    if (ev.target.dataset.i != null) { personAmounts[Number(ev.target.dataset.i)] = ev.target.value; saveDraft(); }
   };
   document.querySelectorAll('input[name=mode]').forEach((r) => {
-    r.onchange = () => { show('manual', isManual()); renderManual(); renderEqualPreview(); };
+    r.onchange = () => { show('manual', isManual()); renderManual(); renderEqualPreview(); saveDraft(); };
   });
   $('detail').onclick = (ev) => {
     const i = ev.target.dataset.i;

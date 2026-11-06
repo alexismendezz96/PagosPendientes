@@ -28,6 +28,8 @@ Las notificaciones utilizan un espacio fijo bajo la barra superior para evitar q
 
 Al registrar un gasto, escribe cada nombre en su campo o elige una sugerencia de las personas guardadas. Al dividir uniformemente se muestra antes de guardar cuánto corresponde a cada persona, incluidos los centavos repartidos. **Guardar persona** añade un nombre nuevo a la hoja `Personas` del Excel abierto. Desde **Administrar personas** puedes agregarlas, modificar sus nombres o quitarlas de la lista; modificar un nombre también actualiza sus pagos y eliminarlo de la lista no elimina pagos. Se rechazan nombres duplicados sin distinguir mayúsculas ni espacios exteriores.
 
+Antes de guardar un gasto se solicita confirmación con su resumen. Al volver al resumen desde un formulario incompleto se pide confirmación y, si se acepta, se descarta el borrador. El borrador se guarda automáticamente en este navegador, asociado a la cuenta y al archivo abierto, y se recupera al volver a **Agregar nuevo pago**, incluso después de recargar o cerrar sesión. No se sincroniza entre dispositivos y se pierde si se borran los datos del navegador. Si un guardado pudo haberse completado sin respuesta, revisa el Excel antes de volver a guardar para evitar duplicados.
+
 Al abrir un archivo, las personas de la lista anterior del navegador para esa cuenta se migran una sola vez al Excel abierto; la copia local se elimina solo después de guardarlas correctamente. Los archivos antiguos sin hoja `Personas` se abren con la lista vacía. La lista se comparte entre dispositivos que abran el mismo archivo, y es independiente entre archivos.
 
 La instalación es opcional desde el menú del navegador compatible (por ejemplo, **Instalar aplicación** en Chrome); la aplicación no muestra un aviso ni botón de instalación. Para ello debe publicarse mediante HTTPS o abrirse en localhost. La interfaz se adapta a pantallas móviles. La instalación conserva los archivos de la interfaz para facilitar la apertura, pero iniciar sesión y consultar o guardar pagos requiere conexión a Google y Drive; los datos de pagos no se almacenan para uso sin conexión.
@@ -38,7 +40,7 @@ El nombre del archivo se recuerda en el navegador para cada cuenta de Google. Al
 ## Seguridad
 - Permiso mínimo de Drive (`drive.file`): solo archivos creados por la app.
 - Token y datos de sesión se guardan en `sessionStorage` (accesible a los scripts de la página y borrado al cerrar la pestaña); al cerrar sesión se revoca el token.
-- El nombre del archivo, el identificador de la cuenta y la preferencia de tema se conservan en `localStorage`; no se guarda allí el token ni las nuevas personas guardadas.
+- El nombre del archivo, el identificador de la cuenta, la preferencia de tema y los datos del borrador de gasto se conservan en `localStorage`; no se guarda allí el token ni la lista de personas guardadas.
 - SheetJS 0.20.3 se sirve desde el repositorio con SRI; la app no depende de un CDN para procesar Excel.
 - CSP, escape de HTML en todo dato renderizado y escape de consultas a Drive.
 

@@ -20,7 +20,7 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
       const classes = new Set(['loading', 'login', 'config', 'app', 'userBox', 'userPhoto',
         'btnConfigBack', 'savedActions', 'summary', 'newExpense', 'details', 'managePeople'].includes(id) ? ['hidden'] : []);
       elements.set(id, {
-        value: '', textContent: '', className: '',
+        value: '', textContent: '', className: '', checked: false,
         getBoundingClientRect() { return { height: 56 }; },
         firstElementChild: { textContent: '' },
         focus() {},
@@ -49,7 +49,11 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
     document: {
       documentElement: { dataset: {}, style: { setProperty() {} } },
       getElementById: element,
-      querySelector: () => mode,
+      querySelector: (selector) => selector === 'input[name=mode]:checked' ? mode : {
+        set checked(value) {
+          if (value) mode.value = selector.includes('value=manual') ? 'manual' : 'equal';
+        },
+      },
       querySelectorAll: () => modeInputs,
     },
     navigator: {},
@@ -613,6 +617,172 @@ test('previsualiza el reparto uniforme y coincide con los importes guardados', a
   app.element('btnAnotherExpense').onclick();
   assert.equal(app.element('equalPreviewList').innerHTML, '');
   assert.match(app.element('equalPreviewHint').textContent, /total válido/);
+});
+
+test('recupera borrador por cuenta y archivo, confirma salida y resume antes de guardar', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([]), 'Gastos');
+  let bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  let account = '123';
+  let fileId = 'file-a';
+  let writes = 0;
+  const storage = new Map();
+  const localStorage = {
+    getItem: (key) => storage.get(key) || null,
+    setItem: (key, value) => storage.set(key, value),
+    removeItem: (key) => storage.delete(key),
+  };
+  const fetch = async (url, opts = {}) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: account }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: fileId }] }) };
+    if (opts.method === 'PATCH') { writes++; bytes = opts.body; return { ok: true }; }
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  const first = setup({ ...activeSession, fileName: 'a.xlsx' }, fetch, { XLSX, Logic, localStorage });
+  await flush();
+  first.element('btnNewExpense').onclick();
+  first.element('desc').value = 'Cena';
+  first.element('desc').oninput();
+  first.element('total').value = '10';
+  first.element('total').oninput();
+  first.element('fecha').value = '2026-03-15';
+  first.element('fecha').oninput();
+  first.element('peopleRows').oninput({ target: { dataset: { person: '0' }, value: 'Ana' } });
+  first.element('btnAddPerson').onclick();
+  first.element('peopleRows').oninput({ target: { dataset: { person: '1' }, value: 'Luis' } });
+  first.mode.value = 'manual';
+  first.modeInputs[1].onchange();
+  first.element('manual').oninput({ target: { dataset: { i: '0' }, value: '4' } });
+  first.element('manual').oninput({ target: { dataset: { i: '1' }, value: '6' } });
+  first.element('cobrado').checked = true;
+  first.element('cobrado').onchange();
+  assert.ok(storage.has('pp_draft_123_file-a'));
+
+  account = '456';
+  const otherAccount = setup({ ...activeSession, fileName: 'a.xlsx' }, fetch, { XLSX, Logic, localStorage });
+  await flush();
+  otherAccount.element('btnNewExpense').onclick();
+  assert.equal(otherAccount.element('desc').value, '');
+  account = '123';
+  fileId = 'file-b';
+  const otherFile = setup({ ...activeSession, fileName: 'b.xlsx' }, fetch, { XLSX, Logic, localStorage });
+  await flush();
+  otherFile.element('btnNewExpense').onclick();
+  assert.equal(otherFile.element('desc').value, '');
+
+  fileId = 'file-a';
+  const restored = setup({ ...activeSession, fileName: 'a.xlsx' }, fetch, { XLSX, Logic, localStorage });
+  await flush();
+  restored.element('btnNewExpense').onclick();
+  assert.equal(restored.element('desc').value, 'Cena');
+  assert.equal(restored.element('fecha').value, '2026-03-15');
+  assert.equal(restored.element('cobrado').checked, true);
+  assert.equal(restored.mode.value, 'manual');
+  assert.match(restored.element('manual').innerHTML, /Ana.*value="4".*Luis.*value="6"/);
+  let prompt = '';
+  restored.window.confirm = (message) => { prompt = message; return false; };
+  restored.element('btnExpenseBack').onclick();
+  assert.match(prompt, /descartará el borrador/);
+  assert.equal(isHidden(restored, 'newExpense'), false);
+  assert.ok(storage.has('pp_draft_123_file-a'));
+  restored.element('btnAdd').onclick();
+  await flush();
+  assert.match(prompt, /Descripción: Cena/);
+  assert.match(prompt, /Fecha: 2026-03-15/);
+  assert.match(prompt, /Total: 10\.00/);
+  assert.match(prompt, /Estado: Cobrado/);
+  assert.match(prompt, /División: Manual/);
+  assert.match(prompt, /Ana: 4\.00\nLuis: 6\.00/);
+  assert.equal(writes, 0);
+  restored.window.confirm = () => true;
+  restored.element('btnAdd').onclick();
+  await flush();
+  assert.equal(writes, 1);
+  assert.equal(storage.has('pp_draft_123_file-a'), false);
+  assert.deepEqual(XLSX.utils.sheet_to_json(XLSX.read(bytes).Sheets.Pendientes).map((p) => p.Monto), [4, 6]);
+  restored.element('btnAnotherExpense').onclick();
+  restored.element('desc').value = 'Cancelar';
+  restored.element('desc').oninput();
+  restored.element('btnExpenseBack').onclick();
+  assert.equal(storage.has('pp_draft_123_file-a'), false);
+  assert.equal(isHidden(restored, 'summary'), false);
+});
+
+test('un borrador recuperado tras respuesta perdida advierte del riesgo de duplicado', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([]), 'Gastos');
+  let bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  let writes = 0;
+  const storage = new Map();
+  const localStorage = {
+    getItem: (key) => storage.get(key) || null,
+    setItem: (key, value) => storage.set(key, value),
+    removeItem: (key) => storage.delete(key),
+  };
+  const fetch = async (url, opts = {}) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: '123' }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: 'id' }] }) };
+    if (opts.method === 'PATCH') { writes++; bytes = opts.body; throw new Error('Tiempo agotado'); }
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  const first = setup({ ...activeSession, fileName: 'a.xlsx' }, fetch, { XLSX, Logic, localStorage });
+  await flush();
+  first.element('btnNewExpense').onclick();
+  first.element('desc').value = 'Cena';
+  first.element('desc').oninput();
+  first.element('total').value = '10';
+  first.element('total').oninput();
+  first.element('peopleRows').oninput({ target: { dataset: { person: '0' }, value: 'Ana' } });
+  first.element('btnAdd').onclick();
+  await flush();
+  assert.equal(writes, 1);
+  assert.equal(JSON.parse(storage.get('pp_draft_123_id')).uncertain, true);
+  const restored = setup({ ...activeSession, fileName: 'a.xlsx' }, fetch, { XLSX, Logic, localStorage });
+  await flush();
+  restored.element('btnNewExpense').onclick();
+  assert.match(restored.element('draftNotice').textContent, /pudo haberse completado/);
+  let confirmations = 0;
+  restored.window.confirm = () => ++confirmations === 1;
+  restored.element('btnAdd').onclick();
+  await flush();
+  assert.equal(confirmations, 2);
+  assert.equal(writes, 1);
+});
+
+test('avisa cuando el navegador no puede guardar o eliminar el borrador', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([]), 'Gastos');
+  const bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  const localStorage = {
+    getItem: () => null,
+    setItem() { throw new Error('Bloqueado'); },
+    removeItem() { throw new Error('Bloqueado'); },
+  };
+  const fetch = async (url) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: '123' }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: 'id' }] }) };
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  const app = setup({ ...activeSession, fileName: 'a.xlsx' }, fetch, { XLSX, Logic, localStorage });
+  await flush();
+  app.element('btnNewExpense').onclick();
+  app.element('desc').value = 'Cena';
+  app.element('desc').oninput();
+  assert.match(app.element('draftNotice').textContent, /No se pudo guardar/);
+  const prompts = [];
+  app.window.confirm = (message) => { prompts.push(message); return prompts.length === 1; };
+  app.element('btnExpenseBack').onclick();
+  assert.equal(isHidden(app, 'newExpense'), false);
+  assert.match(prompts[1], /podría reaparecer/i);
+  app.window.confirm = () => true;
+  app.element('btnExpenseBack').onclick();
+  assert.equal(isHidden(app, 'summary'), false);
 });
 
 test('migra personas antiguas una sola vez y conserva la copia si Drive falla', async () => {
