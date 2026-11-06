@@ -18,7 +18,7 @@ Las acciones generales están dentro de cada pantalla, debajo del título y ante
 
 Las notificaciones utilizan un espacio fijo bajo la barra superior para evitar que la página se mueva al mostrarlas u ocultarlas.
 
-Al registrar un gasto, agrega un campo por persona y selecciónala de la lista guardada o escribe su nombre. **Guardar persona** la añade a la hoja `Personas` del Excel abierto. Desde **Administrar personas** puedes agregarlas, modificar sus nombres o quitarlas de la lista; modificar un nombre también actualiza sus pagos y eliminarlo de la lista no elimina pagos. Se rechazan nombres duplicados sin distinguir mayúsculas ni espacios exteriores.
+Al registrar un gasto, escribe cada nombre en su campo o elige una sugerencia de las personas guardadas. **Guardar persona** añade un nombre nuevo a la hoja `Personas` del Excel abierto. Desde **Administrar personas** puedes agregarlas, modificar sus nombres o quitarlas de la lista; modificar un nombre también actualiza sus pagos y eliminarlo de la lista no elimina pagos. Se rechazan nombres duplicados sin distinguir mayúsculas ni espacios exteriores.
 
 Al abrir un archivo, las personas de la lista anterior del navegador para esa cuenta se migran una sola vez al Excel abierto; la copia local se elimina solo después de guardarlas correctamente. Los archivos antiguos sin hoja `Personas` se abren con la lista vacía. La lista se comparte entre dispositivos que abran el mismo archivo, y es independiente entre archivos.
 

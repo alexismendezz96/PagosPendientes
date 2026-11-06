@@ -413,10 +413,13 @@ test('guarda personas por cuenta, filtra el resumen y evita reenviar el gasto', 
   assert.equal(isHidden(app, 'expenseActions'), false);
   assert.equal(isHidden(app, 'savedActions'), true);
   app.element('peopleRows').oninput({ target: { dataset: { person: '0' }, value: 'Ana' } });
+  assert.equal(isHidden(app, 'save-person-0'), false);
   app.element('peopleRows').onclick({ target: { dataset: { savePerson: '0' } } });
   await flush();
   assert.equal(app.preferences.has('pp_people_123'), false);
   assert.equal(XLSX.utils.sheet_to_json(XLSX.read(bytes).Sheets.Personas)[0].Nombre, 'Ana');
+  app.element('peopleRows').oninput({ target: { dataset: { person: '0' }, value: 'aNA' } });
+  assert.equal(isHidden(app, 'save-person-0'), true);
   app.element('btnAddPerson').onclick();
   app.element('peopleRows').oninput({ target: { dataset: { person: '1' }, value: 'Ana María' } });
   app.element('desc').value = 'Comida';
@@ -424,6 +427,7 @@ test('guarda personas por cuenta, filtra el resumen y evita reenviar el gasto', 
   app.element('btnAdd').onclick();
   await flush();
   assert.equal(writes, 3);
+  assert.equal(XLSX.utils.sheet_to_json(XLSX.read(bytes).Sheets.Pendientes)[0].Persona, 'Ana');
   assert.equal(app.element('desc').value, '');
   assert.equal(isHidden(app, 'expenseForm'), true);
   app.element('btnSavedBack').onclick();
@@ -443,8 +447,11 @@ test('guarda personas por cuenta, filtra el resumen y evita reenviar el gasto', 
   app.element('btnDetailsBack').onclick();
   app.element('btnNewExpense').onclick();
   assert.match(app.element('savedPeople').innerHTML, /Ana/);
-  app.element('peopleRows').onchange({ target: { dataset: { selectPerson: '0' }, value: 'Ana' } });
-  assert.match(app.element('peopleRows').innerHTML, /value="Ana"/);
+  assert.match(app.element('peopleRows').innerHTML, /<input[^>]+list="savedPeople"/);
+  assert.doesNotMatch(app.element('peopleRows').innerHTML, /<select/);
+  assert.match(app.element('peopleRows').innerHTML, /id="save-person-0" class="btn btn-secondary hidden"/);
+  app.element('peopleRows').oninput({ target: { dataset: { person: '0' }, value: 'Ana' } });
+  assert.equal(isHidden(app, 'save-person-0'), true);
   app.element('btnAdd').onclick();
   await flush();
   assert.equal(writes, 3);

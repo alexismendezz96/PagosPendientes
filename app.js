@@ -332,11 +332,12 @@
     $('peopleRows').innerHTML = personRows.map((name, i) =>
       `<div class="person-row"><label class="sr-only" for="person-${i}">Persona ${i + 1}</label>` +
       `<input id="person-${i}" type="text" maxlength="120" list="savedPeople" value="${esc(name)}" placeholder="Nombre de la persona" data-person="${i}">` +
-      `<label class="sr-only" for="saved-person-${i}">Seleccionar persona guardada ${i + 1}</label>` +
-      `<select id="saved-person-${i}" data-select-person="${i}"><option value="">Elegir persona guardada</option>${savedPeople.map((p) => `<option value="${esc(p)}"${p === name ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select>` +
-      `<button class="btn btn-secondary btn-small" type="button" data-save-person="${i}">Guardar persona</button>` +
+      `<button id="save-person-${i}" class="btn btn-secondary${canSavePerson(name) ? '' : ' hidden'}" type="button" data-save-person="${i}">Guardar persona</button>` +
       (personRows.length > 1 ? `<button class="btn btn-secondary btn-icon" type="button" data-remove-person="${i}" title="Eliminar persona" aria-label="Eliminar persona">×</button>` : '') +
       '</div>').join('');
+  }
+  function canSavePerson(name) {
+    return !!name.trim() && !savedPeople.some((saved) => personKey(saved) === personKey(name));
   }
   function renderPersonManager() {
     $('personList').innerHTML = '<thead><tr><th>Persona</th><th>Acciones</th></tr></thead><tbody>' +
@@ -556,13 +557,9 @@
   $('btnAddPerson').onclick = () => { personRows.push(''); personAmounts.push(''); renderPeople(); };
   $('peopleRows').oninput = (ev) => {
     if (ev.target.dataset.person == null) return;
-    personRows[Number(ev.target.dataset.person)] = ev.target.value;
-    renderManual();
-  };
-  $('peopleRows').onchange = (ev) => {
-    if (ev.target.dataset.selectPerson == null || !ev.target.value) return;
-    personRows[Number(ev.target.dataset.selectPerson)] = ev.target.value;
-    renderPeople();
+    const index = Number(ev.target.dataset.person);
+    personRows[index] = ev.target.value;
+    show('save-person-' + index, canSavePerson(ev.target.value));
     renderManual();
   };
   $('peopleRows').onclick = (ev) => {
