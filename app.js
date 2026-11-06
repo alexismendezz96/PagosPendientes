@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const { GOOGLE_CLIENT_ID, DEFAULT_FILE_NAME } = window.APP_CONFIG;
+  const { DEFAULT_FILE_NAME } = window.APP_CONFIG;
   // drive.file: acceso únicamente a los archivos creados por esta app.
   const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
   const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -15,7 +15,6 @@
   const today = () => new Date().toISOString().slice(0, 10);
 
   let session = loadSession();
-  let tokenClient = null;
   let gastos = [];
   let pendientes = [];
   let toastTimer = null;
@@ -24,13 +23,19 @@
   function loadSession() {
     try {
       const s = JSON.parse(sessionStorage.getItem(SESSION_KEY));
-      return s && s.token && s.expiresAt > Date.now() ? s : {};
+      if (!s || typeof s !== 'object') return {};
+      if (s.token && s.expiresAt > Date.now()) return s;
+      return typeof s.clientId === 'string' ? { clientId: s.clientId } : {};
     } catch (e) {
       return {};
     }
   }
   function saveSession() { sessionStorage.setItem(SESSION_KEY, JSON.stringify(session)); }
   function clearSession() { session = {}; sessionStorage.removeItem(SESSION_KEY); }
+  function expireSession() {
+    session = session.clientId ? { clientId: session.clientId } : {};
+    saveSession();
+  }
 
   // ---------- Utilidades UI ----------
   function esc(s) {
@@ -59,7 +64,7 @@
   async function api(url, opts = {}) {
     const r = await fetch(url, { ...opts, headers: { Authorization: 'Bearer ' + session.token, ...(opts.headers || {}) } });
     if (r.status === 401) {
-      clearSession();
+      expireSession();
       showScreen({ login: true });
       throw new Error('La sesión expiró. Inicia sesión nuevamente.');
     }
@@ -130,7 +135,7 @@
   function onTokenResponse(resp) {
     if (resp.error) return toast('No se pudo iniciar sesión con Google.');
     if (!(resp.scope || '').includes('drive.file')) return toast('Se requiere el permiso de Drive para continuar.');
-    session = { token: resp.access_token, expiresAt: Date.now() + (Number(resp.expires_in) - 30) * 1000 };
+    session = { clientId: session.clientId, token: resp.access_token, expiresAt: Date.now() + (Number(resp.expires_in) - 30) * 1000 };
     return enterAfterLogin();
   }
   async function enterAfterLogin() {
@@ -145,16 +150,30 @@
     } catch (e) { toast(e.message); }
   }
   function login() {
-    if (!window.google || !google.accounts) return toast('Cargando Google, intenta de nuevo en un momento.');
-    if (GOOGLE_CLIENT_ID.startsWith('REEMPLAZAR')) return toast('Falta configurar el Client ID en config.js.');
-    tokenClient = tokenClient || google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID, scope: SCOPES, callback: onTokenResponse,
-    });
-    tokenClient.requestAccessToken();
+    const clientId = $('clientId').value.trim();
+    if (!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(clientId)) {
+      $('clientId').focus();
+      return toast('Introduce un ID de cliente OAuth válido, no el secreto de cliente.');
+    }
+    if (!window.google || !google.accounts || !google.accounts.oauth2) {
+      return toast('No se pudo cargar Google. Comprueba tu conexión e inténtalo de nuevo.');
+    }
+    session = { clientId };
+    saveSession();
+    try {
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: clientId, scope: SCOPES, callback: onTokenResponse,
+        error_callback: () => toast('No se pudo abrir la ventana de Google o fue cerrada. Inténtalo de nuevo.'),
+      });
+      tokenClient.requestAccessToken();
+    } catch (e) {
+      toast('No se pudo iniciar sesión con Google. Comprueba el ID de cliente.');
+    }
   }
   function logout() {
     if (session.token && window.google) google.accounts.oauth2.revoke(session.token);
     clearSession();
+    $('clientId').value = '';
     gastos = [];
     pendientes = [];
     showScreen({ login: true });
@@ -211,7 +230,7 @@
   }
 
   // ---------- Eventos ----------
-  $('btnLogin').onclick = login;
+  $('loginForm').onsubmit = (ev) => { ev.preventDefault(); login(); };
   $('btnLogout').onclick = logout;
   $('configForm').onsubmit = (ev) => {
     ev.preventDefault();
@@ -229,6 +248,8 @@
 
   // ---------- Inicio ----------
   $('fecha').value = today();
+  $('clientId').value = session.clientId || '';
+  $('originHint').textContent = window.location.origin;
   if (session.token) enterAfterLogin();
   else showScreen({ login: true });
 })();
