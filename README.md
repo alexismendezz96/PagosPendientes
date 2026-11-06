@@ -2,7 +2,7 @@
 Aplicación web estática para registrar gastos pendientes de cobrar. Inicia sesión con Google (ventana estándar de Google) y guarda los datos en un Excel (`.xlsx`, hojas `Gastos` y `Pendientes`) en tu Drive.
 
 ## Configuración de Google
-Google requiere un proyecto OAuth; la aplicación no puede crearlo automáticamente. En [Google Cloud Console](https://console.cloud.google.com/), habilita Google Drive API, configura la pantalla de consentimiento y crea un ID de cliente OAuth de tipo aplicación web. Agrega el origen de la página a los orígenes autorizados de JavaScript (por ejemplo, `https://usuario.github.io`, sin la ruta del repositorio). Si la app está en modo de prueba, agrega tu cuenta como usuario de prueba.
+El ID de cliente (público, no es un secreto) se define en `config.js`; si se deja vacío, la app lo solicita al iniciar. Google requiere un proyecto OAuth; la aplicación no puede crearlo automáticamente. En [Google Cloud Console](https://console.cloud.google.com/), habilita Google Drive API, configura la pantalla de consentimiento y crea un ID de cliente OAuth de tipo aplicación web. Agrega el origen de la página a los orígenes autorizados de JavaScript (por ejemplo, `https://usuario.github.io`, sin la ruta del repositorio). Si la app está en modo de prueba, agrega tu cuenta como usuario de prueba.
 
 ## Uso
 1. Introduce el ID de cliente en la pantalla inicial, pulsa **Iniciar sesión con Google** y acepta los permisos. El ID se conserva solo en la pestaña actual, incluso si se recarga, y se elimina al cerrar sesión o la pestaña.

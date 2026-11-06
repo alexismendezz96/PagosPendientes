@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const { DEFAULT_FILE_NAME } = window.APP_CONFIG;
+  const { GOOGLE_CLIENT_ID = '', DEFAULT_FILE_NAME } = window.APP_CONFIG;
   // drive.file: acceso únicamente a los archivos creados por esta app.
   const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
   const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -150,9 +150,9 @@
     } catch (e) { toast(e.message); }
   }
   function login() {
-    const clientId = $('clientId').value.trim();
+    const clientId = GOOGLE_CLIENT_ID || $('clientId').value.trim();
     if (!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(clientId)) {
-      $('clientId').focus();
+      if (!GOOGLE_CLIENT_ID) $('clientId').focus();
       return toast('Introduce un ID de cliente OAuth válido, no el secreto de cliente.');
     }
     if (!window.google || !google.accounts || !google.accounts.oauth2) {
@@ -248,6 +248,7 @@
 
   // ---------- Inicio ----------
   $('fecha').value = today();
+  show('clientIdBox', !GOOGLE_CLIENT_ID);
   $('clientId').value = session.clientId || '';
   $('originHint').textContent = window.location.origin;
   if (session.token) enterAfterLogin();

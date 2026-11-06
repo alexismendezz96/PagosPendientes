@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const source = fs.readFileSync(require.resolve('../app.js'), 'utf8');
 const clientId = '123-example.apps.googleusercontent.com';
 
-function setup(initialSession) {
+function setup(initialSession, configuredId) {
   const data = new Map(initialSession ? [['pp_session', JSON.stringify(initialSession)]] : []);
   const elements = new Map();
   const tokenClients = [];
@@ -30,7 +30,7 @@ function setup(initialSession) {
     revoke(token) { revoked = token; },
   } } };
   const context = {
-    window: { APP_CONFIG: { DEFAULT_FILE_NAME: 'PagosPendientes.xlsx' }, google, location: { origin: 'https://example.github.io' } },
+    window: { APP_CONFIG: { DEFAULT_FILE_NAME: 'PagosPendientes.xlsx', GOOGLE_CLIENT_ID: configuredId }, google, location: { origin: 'https://example.github.io' } },
     google,
     document: {
       getElementById: element,
@@ -98,4 +98,12 @@ test('permite corregir el ID y muestra errores de la ventana de Google', () => {
   assert.equal(app.tokenClients[1].options.client_id, '456-other.apps.googleusercontent.com');
   app.tokenClients[1].options.error_callback();
   assert.match(app.element('msg').textContent, /ventana de Google/);
+});
+
+test('usa el ID de config.js sin pedirlo al usuario', () => {
+  const app = setup(undefined, clientId);
+  submit(app, '');
+  assert.equal(app.tokenClients.length, 1);
+  assert.equal(app.tokenClients[0].options.client_id, clientId);
+  assert.equal(app.tokenClients[0].requested, true);
 });
