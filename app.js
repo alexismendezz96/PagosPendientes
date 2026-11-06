@@ -89,7 +89,13 @@
     });
     return (await r.json()).id;
   }
+  function requireXlsx() {
+    if (typeof XLSX === 'undefined') {
+      throw new Error('No se pudo cargar la librería de Excel (SheetJS). Desactiva el bloqueador de anuncios o rastreadores para este sitio y recarga la página.');
+    }
+  }
   function workbookBytes() {
+    requireXlsx();
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(gastos, { header: ['ID', 'Fecha', 'Descripcion', 'Total'] }), 'Gastos');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pendientes, { header: ['ID', 'Persona', 'Monto', 'Estado', 'FechaCobro'] }), 'Pendientes');
@@ -101,6 +107,7 @@
     });
   }
   async function loadFile() {
+    requireXlsx();
     const r = await api(`${DRIVE_API}/${session.fileId}?alt=media`);
     const wb = XLSX.read(await r.arrayBuffer());
     const rows = (name) => (wb.Sheets[name] ? XLSX.utils.sheet_to_json(wb.Sheets[name], { raw: false }) : []);
@@ -111,6 +118,7 @@
 
   // Abre (o crea si no existe) el archivo configurado y muestra la app.
   async function openWorkbook(fileName) {
+    requireXlsx();
     session.fileName = fileName;
     session.fileId = await findFileId(fileName);
     if (session.fileId) {
