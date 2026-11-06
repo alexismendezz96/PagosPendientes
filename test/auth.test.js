@@ -71,7 +71,7 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
     ...extras,
   };
   vm.runInNewContext(source, context);
-  return { element, data, preferences, tokenClients, timers, mode, document: context.document, revoked: () => revoked };
+  return { element, data, preferences, tokenClients, timers, mode, document: context.document, window: context.window, revoked: () => revoked };
 }
 
 const startLogin = (app) => app.element('btnLogin').onclick();
@@ -719,6 +719,13 @@ test('limpia solo cobros antiguos y conserva gastos con pagos y hojas adicionale
   await flush();
   app.element('btnSettings').onclick();
   assert.equal(isHidden(app, 'btnCleanup'), false);
+  let prompt = '';
+  app.window.confirm = (message) => { prompt = message; return false; };
+  app.element('btnCleanup').onclick();
+  await flush();
+  assert.match(prompt, /Archivo abierto: pagos\.xlsx/);
+  assert.equal(XLSX.utils.sheet_to_json(XLSX.read(bytes).Sheets.Pendientes).length, 5);
+  app.window.confirm = () => true;
   app.element('btnCleanup').onclick();
   await flush();
   assert.match(app.element('msg').textContent, /Sin conexión/);
@@ -734,6 +741,79 @@ test('limpia solo cobros antiguos y conserva gastos con pagos y hojas adicionale
   assert.deepEqual(XLSX.utils.sheet_to_json(result.Sheets.Gastos).map((row) => row.ID), ['1', '3']);
   assert.equal(result.Sheets.Extra.A2.v, 'conservar');
   assert.match(app.element('msg').textContent, /2 cobros antiguos/);
+});
+
+test('reinicia únicamente los datos de la aplicación con confirmación y recupera errores', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ ID: '1', Fecha: '2026-01-01', Descripcion: 'Gasto', Total: 10 }]), 'Gastos');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+    { ID: '1', Persona: 'Ana', Monto: 5, Estado: 'Pendiente' },
+    { ID: '1', Persona: 'Luis', Monto: 5, Estado: 'Cobrado', FechaCobro: '2026-01-01' },
+  ]), 'Pendientes');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ Nombre: 'Ana' }]), 'Personas');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Datos'], ['conservar']]), 'Extra');
+  let bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  let writes = 0;
+  let fail = false;
+  const fetch = async (url, opts = {}) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: '123' }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: 'id' }] }) };
+    if (opts.method === 'PATCH') {
+      writes++;
+      if (fail) throw new Error('Sin conexión');
+      bytes = opts.body;
+      return { ok: true };
+    }
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  const app = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic });
+  await flush();
+  app.element('btnNewExpense').onclick();
+  app.element('desc').value = 'Borrador';
+  app.element('btnSettings').onclick();
+  assert.equal(isHidden(app, 'btnResetWorkbook'), false);
+  app.element('fileName').value = 'otro.xlsx';
+  let prompt = '';
+  app.window.confirm = (message) => { prompt = message; return false; };
+  app.element('btnResetWorkbook').onclick();
+  await flush();
+  assert.match(prompt, /Archivo abierto: pagos\.xlsx/);
+  assert.match(prompt, /pendientes y cobrados.*personas guardadas/i);
+  assert.match(prompt, /respaldo manual/i);
+  assert.equal(writes, 0);
+  assert.equal(app.element('desc').value, 'Borrador');
+  assert.equal(app.element('pendingTotal').textContent, '5.00');
+  fail = true;
+  app.window.confirm = () => true;
+  app.element('btnResetWorkbook').onclick();
+  await flush();
+  assert.match(app.element('msg').textContent, /no se pudo confirmar/i);
+  assert.equal(app.element('pendingTotal').textContent, '5.00');
+  assert.match(app.element('savedPeople').innerHTML, /Ana/);
+  assert.equal(app.element('desc').value, 'Borrador');
+  assert.equal(XLSX.utils.sheet_to_json(XLSX.read(bytes).Sheets.Pendientes).length, 2);
+  fail = false;
+  app.element('fileName').value = 'pagos.xlsx';
+  app.element('configForm').onsubmit({ preventDefault() {} });
+  await flush();
+  app.element('btnSettings').onclick();
+  app.element('btnResetWorkbook').onclick();
+  await flush();
+  const result = XLSX.read(bytes);
+  for (const name of ['Gastos', 'Pendientes', 'Personas']) {
+    assert.deepEqual(XLSX.utils.sheet_to_json(result.Sheets[name]), []);
+  }
+  assert.equal(result.Sheets.Extra.A2.v, 'conservar');
+  assert.equal(app.element('pendingTotal').textContent, '0.00');
+  assert.equal(app.element('savedPeople').innerHTML, '');
+  assert.equal(app.element('desc').value, '');
+  assert.match(app.element('msg').textContent, /reiniciados/);
+  const reopened = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic });
+  await flush();
+  assert.equal(reopened.element('pendingTotal').textContent, '0.00');
+  assert.equal(reopened.element('savedPeople').innerHTML, '');
 });
 
 test('si falla el cobro no se registra en memoria ni en un guardado posterior', async () => {

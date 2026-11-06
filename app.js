@@ -112,6 +112,7 @@
     show('btnLogout', !login && !loading);
     show('btnConfigBack', config && workbookLoaded);
     show('btnCleanup', config && workbookLoaded);
+    show('btnResetWorkbook', config && workbookLoaded);
     show('cleanupInfo', config && workbookLoaded);
   }
   function showAppView(view) {
@@ -554,6 +555,27 @@
     render();
     toast(`Se eliminaron ${removed.length} cobros antiguos.`, true);
   }
+  async function resetWorkbook() {
+    if (!workbookLoaded) throw new Error('Primero abre un archivo de Excel.');
+    if (!window.confirm(`Archivo abierto: ${session.fileName}. Se eliminarán todos los gastos, pagos pendientes y cobrados, y personas guardadas. Se descartarán los datos sin guardar del formulario de pago. Las hojas adicionales se conservarán en la medida en que la biblioteca de Excel lo permita. Esta acción no se puede deshacer desde la aplicación. Haz primero un respaldo manual del Excel en Drive. ¿Continuar?`)) return;
+    const previousExpenses = gastos;
+    const previousPayments = pendientes;
+    const previousPeople = savedPeople;
+    gastos = [];
+    pendientes = [];
+    savedPeople = [];
+    try { await saveFile(); }
+    catch (e) { gastos = previousExpenses; pendientes = previousPayments; savedPeople = previousPeople; throw e; }
+    exactPerson = null;
+    detailPage = 0;
+    $('filterPerson').value = '';
+    resetExpense();
+    resetPersonEditor();
+    renderSavedPeople();
+    renderPersonManager();
+    render();
+    toast('Datos de la aplicación reiniciados en el Excel.', true);
+  }
 
   // ---------- Eventos ----------
   $('btnLogin').onclick = login;
@@ -574,6 +596,7 @@
   };
   $('btnConfigBack').onclick = () => { if (workbookLoaded) showAppView(currentView); };
   $('btnCleanup').onclick = () => withBusy($('btnCleanup'), cleanupCollected);
+  $('btnResetWorkbook').onclick = () => withBusy($('btnResetWorkbook'), resetWorkbook);
   $('btnDetails').onclick = () => openDetails();
   function openPersonDetails(target) {
     const row = target.closest('[data-person-index]');
