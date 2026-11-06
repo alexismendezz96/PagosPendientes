@@ -441,6 +441,14 @@ test('guarda personas por cuenta, filtra el resumen y evita reenviar el gasto', 
   assert.doesNotMatch(app.element('detail').innerHTML, /Ana María/);
   app.element('filterPerson').oninput();
   assert.match(app.element('detail').innerHTML, /Ana María/);
+  app.element('filterPerson').value = 'MARÍA';
+  app.element('filterPerson').oninput();
+  assert.match(app.element('detail').innerHTML, /Ana María/);
+  assert.doesNotMatch(app.element('detail').innerHTML, /<td>Ana<\/td>/);
+  app.element('filterPerson').value = '';
+  app.element('filterPerson').oninput();
+  assert.match(app.element('detail').innerHTML, /<td>Ana<\/td>/);
+  assert.match(app.element('detail').innerHTML, /Ana María/);
   app.element('btnDetailsBack').onclick();
   const row = { dataset: { personIndex: '1' }, closest() { return this; } };
   let prevented = false;

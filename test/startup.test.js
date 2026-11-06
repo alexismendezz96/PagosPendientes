@@ -46,10 +46,16 @@ test('la caché contiene los mismos recursos versionados que la página', () => 
   const html = fs.readFileSync(require.resolve('../index.html'), 'utf8');
   const worker = fs.readFileSync(require.resolve('../service-worker.js'), 'utf8');
   for (const resource of ['styles.css', 'startup.js', 'config.js', 'logic.js', 'app.js', 'manifest.webmanifest']) {
-    const url = `${resource}?v=1.3.2`;
+    const url = `${resource}?v=1.3.3`;
     assert.ok(html.includes(url), url);
     assert.ok(worker.includes(`'${url}'`), url);
   }
+});
+
+test('el filtro de persona usa las sugerencias del Excel', () => {
+  const html = fs.readFileSync(require.resolve('../index.html'), 'utf8');
+  assert.match(html, /<input id="filterPerson"[^>]*list="savedPeople"/);
+  assert.match(html, /<datalist id="savedPeople"><\/datalist>/);
 });
 
 test('las acciones de cada pantalla siguen a su título y preceden al contenido', () => {
