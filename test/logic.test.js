@@ -30,3 +30,15 @@ test('filtros combinan estado, fechas del gasto y persona', () => {
   assert.strictEqual(L.matchesPayment(p, g, { ...filters, person: 'Ana', exactPerson: 'Ana' }), false);
   assert.strictEqual(L.matchesPayment(p, g, { ...filters, person: '', status: '', from: '', to: '' }), true);
 });
+
+test('agrupa y filtra personas sin distinguir mayúsculas ni normalización Unicode', () => {
+  const rows = [
+    { Persona: 'ANA', Estado: 'Pendiente', Monto: 5, ID: '1' },
+    { Persona: 'ana', Estado: 'Pendiente', Monto: 7, ID: '2' },
+  ];
+  assert.deepStrictEqual(L.pendingByPerson(rows), { ANA: 12 });
+  assert.strictEqual(L.matchesPayment(rows[1], {}, { status: 'Pendiente', from: '', to: '', person: 'ANA', exactPerson: 'ANA' }), true);
+  assert.strictEqual(L.personKey(' MARÍA '), L.personKey('mari\u0301a'));
+  L.markCollected(rows, '2', 'Ana', '2026-01-01');
+  assert.strictEqual(rows[1].Estado, 'Cobrado');
+});

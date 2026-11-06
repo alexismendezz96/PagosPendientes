@@ -1,5 +1,5 @@
 # Control de pagos pendientes
-Aplicación web estática para registrar gastos pendientes de cobrar. Inicia sesión con Google (ventana estándar de Google) y guarda los datos en un Excel (`.xlsx`, hojas `Gastos` y `Pendientes`) en tu Drive.
+Aplicación web estática para registrar gastos pendientes de cobrar. Inicia sesión con Google (ventana estándar de Google) y guarda los datos en un Excel (`.xlsx`, hojas `Gastos`, `Pendientes` y `Personas`) en tu Drive.
 
 La versión visible de la aplicación usa el formato `MAJOR.MINOR.PATCH`, comenzando en `1.0.0`: incrementa PATCH para correcciones pequeñas, MINOR para funcionalidades compatibles y MAJOR para cambios incompatibles.
 
@@ -16,7 +16,11 @@ La ventana de pagos pendientes muestra pendientes por defecto; puedes filtrar po
 
 Las acciones generales están dentro de cada pantalla, debajo del título y antes del contenido, y permanecen visibles al desplazarse. Las acciones de cada pago permanecen junto a su registro.
 
-Al registrar un gasto, agrega un campo por persona. **Guardar persona** añade el nombre a las sugerencias para próximos gastos en ese navegador y cuenta de Google; no se sincroniza con otros dispositivos. Después de guardar el gasto, elige entre volver al resumen o agregar otro registro con el formulario limpio.
+Las notificaciones utilizan un espacio fijo bajo la barra superior para evitar que la página se mueva al mostrarlas u ocultarlas.
+
+Al registrar un gasto, agrega un campo por persona y selecciónala de la lista guardada o escribe su nombre. **Guardar persona** la añade a la hoja `Personas` del Excel abierto. Desde **Administrar personas** puedes agregarlas, modificar sus nombres o quitarlas de la lista; modificar un nombre también actualiza sus pagos y eliminarlo de la lista no elimina pagos. Se rechazan nombres duplicados sin distinguir mayúsculas ni espacios exteriores.
+
+Al abrir un archivo, las personas de la lista anterior del navegador para esa cuenta se migran una sola vez al Excel abierto; la copia local se elimina solo después de guardarlas correctamente. Los archivos antiguos sin hoja `Personas` se abren con la lista vacía. La lista se comparte entre dispositivos que abran el mismo archivo, y es independiente entre archivos.
 
 La instalación es opcional desde el menú del navegador compatible (por ejemplo, **Instalar aplicación** en Chrome); la aplicación no muestra un aviso ni botón de instalación. Para ello debe publicarse mediante HTTPS o abrirse en localhost. La interfaz se adapta a pantallas móviles. La instalación conserva los archivos de la interfaz para facilitar la apertura, pero iniciar sesión y consultar o guardar pagos requiere conexión a Google y Drive; los datos de pagos no se almacenan para uso sin conexión.
 
@@ -26,7 +30,7 @@ El nombre del archivo se recuerda en el navegador para cada cuenta de Google. Al
 ## Seguridad
 - Permiso mínimo de Drive (`drive.file`): solo archivos creados por la app.
 - Token y datos de sesión se guardan en `sessionStorage` (accesible a los scripts de la página y borrado al cerrar la pestaña); al cerrar sesión se revoca el token.
-- El nombre del archivo, las personas guardadas por cuenta, el identificador de la cuenta y la preferencia de tema se conservan en `localStorage`; no se guarda allí el token.
+- El nombre del archivo, el identificador de la cuenta y la preferencia de tema se conservan en `localStorage`; no se guarda allí el token ni las nuevas personas guardadas.
 - SheetJS 0.20.3 se sirve desde el repositorio con SRI; la app no depende de un CDN para procesar Excel.
 - CSP, escape de HTML en todo dato renderizado y escape de consultas a Drive.
 

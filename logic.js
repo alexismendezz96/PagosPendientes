@@ -3,6 +3,7 @@
   else root.Logic = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+  const personKey = (name) => String(name || '').trim().normalize('NFC').toLowerCase();
 
   // Divide el total en partes iguales (en centavos) entre las personas; el resto se reparte de a 1 centavo.
   function splitEqual(total, people) {
@@ -41,16 +42,20 @@
 
   // Total pendiente por persona.
   function pendingByPerson(pendientes) {
-    const out = {};
+    const names = new Map();
     pendientes.forEach((r) => {
-      if (r.Estado === 'Pendiente') out[r.Persona] = round2((out[r.Persona] || 0) + Number(r.Monto));
+      if (r.Estado !== 'Pendiente') return;
+      const key = personKey(r.Persona);
+      const item = names.get(key) || { name: String(r.Persona).trim(), total: 0 };
+      item.total = round2(item.total + Number(r.Monto));
+      names.set(key, item);
     });
-    return out;
+    return Object.fromEntries([...names.values()].map(({ name, total }) => [name, total]));
   }
 
   function markCollected(pendientes, id, persona, fecha) {
     pendientes.forEach((r) => {
-      if (r.ID === id && (persona == null || r.Persona === persona) && r.Estado === 'Pendiente') {
+      if (r.ID === id && (persona == null || personKey(r.Persona) === personKey(persona)) && r.Estado === 'Pendiente') {
         r.Estado = 'Cobrado';
         r.FechaCobro = fecha;
       }
@@ -60,11 +65,11 @@
   function matchesPayment(payment, expense, { status, from, to, person, exactPerson }) {
     const date = String(expense.Fecha || '');
     const name = String(payment.Persona || '');
-    const query = person.trim().toLocaleLowerCase();
+    const query = personKey(person);
     return (!status || payment.Estado === status) &&
       (!from || (!!date && date >= from)) && (!to || (!!date && date <= to)) &&
-      (exactPerson !== null ? name === exactPerson : name.toLocaleLowerCase().includes(query));
+      (exactPerson !== null ? personKey(name) === personKey(exactPerson) : personKey(name).includes(query));
   }
 
-  return { splitEqual, manualSplit, buildExpense, pendingByPerson, markCollected, matchesPayment, round2 };
+  return { splitEqual, manualSplit, buildExpense, pendingByPerson, markCollected, matchesPayment, round2, personKey };
 });

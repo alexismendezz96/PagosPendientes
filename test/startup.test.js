@@ -46,7 +46,7 @@ test('la caché contiene los mismos recursos versionados que la página', () => 
   const html = fs.readFileSync(require.resolve('../index.html'), 'utf8');
   const worker = fs.readFileSync(require.resolve('../service-worker.js'), 'utf8');
   for (const resource of ['styles.css', 'startup.js', 'config.js', 'logic.js', 'app.js', 'manifest.webmanifest']) {
-    const url = `${resource}?v=1.2.9`;
+    const url = `${resource}?v=1.3.0`;
     assert.ok(html.includes(url), url);
     assert.ok(worker.includes(`'${url}'`), url);
   }
@@ -60,6 +60,7 @@ test('las acciones de cada pantalla siguen a su título y preceden al contenido'
     ['summary', 'Resumen de pendientes', 'btnDetails', 'Consulta cuánto'],
     ['newExpense', 'Agregar nuevo pago', 'btnAdd', 'expenseForm'],
     ['details', 'Pagos pendientes', 'btnDetailsBack', 'Consulta los pendientes'],
+    ['managePeople', 'Administrar personas', 'btnPersonSave', 'Las personas se guardan'],
   ]) {
     const start = html.indexOf(`<section id="${section}"`);
     const end = html.indexOf('</section>', start);

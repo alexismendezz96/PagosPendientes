@@ -17,11 +17,12 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
   const element = (id) => {
     if (!elements.has(id)) {
       const classes = new Set(['loading', 'login', 'config', 'app', 'userBox', 'userPhoto',
-        'btnConfigBack', 'savedActions', 'summary', 'newExpense', 'details'].includes(id) ? ['hidden'] : []);
+        'btnConfigBack', 'savedActions', 'summary', 'newExpense', 'details', 'managePeople'].includes(id) ? ['hidden'] : []);
       elements.set(id, {
         value: '', textContent: '', className: '',
         getBoundingClientRect() { return { height: 56 }; },
         firstElementChild: { textContent: '' },
+        focus() {},
         setAttribute(name, value) { this[name] = value; },
         removeAttribute(name) { delete this[name]; },
         classList: {
@@ -42,7 +43,7 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
     revoke(token) { revoked = token; },
   } } };
   const context = {
-    window: { APP_CONFIG: { DEFAULT_FILE_NAME: 'PagosPendientes.xlsx', GOOGLE_CLIENT_ID: clientId }, google, addEventListener() {} },
+    window: { APP_CONFIG: { DEFAULT_FILE_NAME: 'PagosPendientes.xlsx', GOOGLE_CLIENT_ID: clientId }, google, addEventListener() {}, confirm: () => true },
     google,
     document: {
       documentElement: { dataset: {}, style: { setProperty() {} } },
@@ -59,6 +60,7 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
     localStorage: {
       getItem: (key) => preferences.get(key) || null,
       setItem: (key, value) => preferences.set(key, value),
+      removeItem: (key) => preferences.delete(key),
     },
     fetch,
     setTimeout: (callback) => { timers.push(callback); return timers.length; },
@@ -382,7 +384,7 @@ test('informa si el navegador no permite recordar el archivo', async () => {
     if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: 'file-id' }] }) };
     return { ok: true, arrayBuffer: async () => bytes };
   };
-  const localStorage = { setItem() { throw new Error('Blocked'); } };
+  const localStorage = { getItem() { return null; }, setItem() { throw new Error('Blocked'); } };
   const app = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic, localStorage });
   await flush();
   assert.equal(isHidden(app, 'summary'), false);
@@ -412,14 +414,16 @@ test('guarda personas por cuenta, filtra el resumen y evita reenviar el gasto', 
   assert.equal(isHidden(app, 'savedActions'), true);
   app.element('peopleRows').oninput({ target: { dataset: { person: '0' }, value: 'Ana' } });
   app.element('peopleRows').onclick({ target: { dataset: { savePerson: '0' } } });
-  assert.equal(app.preferences.get('pp_people_123'), '["Ana"]');
+  await flush();
+  assert.equal(app.preferences.has('pp_people_123'), false);
+  assert.equal(XLSX.utils.sheet_to_json(XLSX.read(bytes).Sheets.Personas)[0].Nombre, 'Ana');
   app.element('btnAddPerson').onclick();
   app.element('peopleRows').oninput({ target: { dataset: { person: '1' }, value: 'Ana María' } });
   app.element('desc').value = 'Comida';
   app.element('total').value = '10';
   app.element('btnAdd').onclick();
   await flush();
-  assert.equal(writes, 2);
+  assert.equal(writes, 3);
   assert.equal(app.element('desc').value, '');
   assert.equal(isHidden(app, 'expenseForm'), true);
   app.element('btnSavedBack').onclick();
@@ -439,20 +443,23 @@ test('guarda personas por cuenta, filtra el resumen y evita reenviar el gasto', 
   app.element('btnDetailsBack').onclick();
   app.element('btnNewExpense').onclick();
   assert.match(app.element('savedPeople').innerHTML, /Ana/);
+  app.element('peopleRows').onchange({ target: { dataset: { selectPerson: '0' }, value: 'Ana' } });
+  assert.match(app.element('peopleRows').innerHTML, /value="Ana"/);
   app.element('btnAdd').onclick();
   await flush();
-  assert.equal(writes, 2);
+  assert.equal(writes, 3);
   app.element('btnLogout').onclick();
   assert.equal(app.element('userName').textContent, '');
   assert.equal(app.element('savedPeople').innerHTML, '');
 });
 
-test('el tema se recuerda y las notificaciones desaparecen automáticamente', () => {
+test('el tema se recuerda y las notificaciones desaparecen automáticamente', async () => {
   const app = setup();
   app.element('btnTheme').onclick();
   assert.equal(app.document.documentElement.dataset.theme, 'dark');
   assert.equal(app.preferences.get('pp_theme'), 'dark');
   app.element('peopleRows').onclick({ target: { dataset: { savePerson: '0' } } });
+  await flush();
   assert.match(app.element('msg').textContent, /Escribe el nombre/);
   app.timers.at(-1)();
   assert.equal(isHidden(app, 'msg'), true);
@@ -513,4 +520,104 @@ test('mantiene los importes manuales y revierte un gasto si falla el guardado', 
   const rows = XLSX.utils.sheet_to_json(saved.Sheets.Pendientes);
   assert.deepEqual(rows.map((row) => row.Monto), [3, 7]);
   assert.equal(XLSX.utils.sheet_to_json(saved.Sheets.Gastos).length, 1);
+});
+
+test('migra personas antiguas una sola vez y conserva la copia si Drive falla', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([]), 'Gastos');
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([{ Nombre: 'ANA' }]), 'Personas');
+  let bytes = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
+  let fail = true;
+  const saved = new Map([['pp_people_123', '["ana","Luis","LUIS"]']]);
+  const localStorage = {
+    getItem: (key) => saved.get(key) || null,
+    setItem: (key, value) => saved.set(key, value),
+    removeItem: (key) => saved.delete(key),
+  };
+  const fetch = async (url, opts = {}) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: '123' }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: 'id' }] }) };
+    if (opts.method === 'PATCH') {
+      if (fail) throw new Error('Sin conexión');
+      bytes = opts.body;
+      return { ok: true };
+    }
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  const app = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic, localStorage });
+  await flush();
+  assert.match(app.element('msg').textContent, /No se pudieron migrar/);
+  assert.equal(saved.has('pp_people_123'), true);
+  fail = false;
+  app.element('configForm').onsubmit({ preventDefault() {} });
+  await flush();
+  assert.equal(saved.has('pp_people_123'), false);
+  assert.deepEqual(XLSX.utils.sheet_to_json(XLSX.read(bytes).Sheets.Personas).map((row) => row.Nombre), ['ANA', 'Luis']);
+  assert.match(app.element('savedPeople').innerHTML, /Luis/);
+  const otherBrowser = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic });
+  await flush();
+  assert.match(otherBrowser.element('savedPeople').innerHTML, /Luis/);
+});
+
+test('administra personas en Excel, evita duplicados y conserva pagos al eliminar', async () => {
+  const XLSX = require('@e965/xlsx');
+  const Logic = require('../logic');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ ID: '1', Fecha: '2026-01-01', Descripcion: 'Gasto', Total: 10 }]), 'Gastos');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ ID: '1', Persona: 'aNa', Monto: 10, Estado: 'Pendiente' }]), 'Pendientes');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ Nombre: 'Ana' }]), 'Personas');
+  let bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  let fail = false;
+  const fetch = async (url, opts = {}) => {
+    if (url.includes('userinfo')) return { ok: true, json: async () => ({ sub: '123' }) };
+    if (url.includes('?q=')) return { ok: true, json: async () => ({ files: [{ id: 'id' }] }) };
+    if (opts.method === 'PATCH') {
+      if (fail) throw new Error('Sin conexión');
+      bytes = opts.body;
+      return { ok: true };
+    }
+    return { ok: true, arrayBuffer: async () => bytes };
+  };
+  const app = setup({ ...activeSession, fileName: 'pagos.xlsx' }, fetch, { XLSX, Logic });
+  await flush();
+  app.element('btnManagePeople').onclick();
+  assert.equal(isHidden(app, 'managePeople'), false);
+  app.element('btnSettings').onclick();
+  assert.equal(app.element('btnConfigBack').textContent, 'Volver a personas');
+  app.element('btnConfigBack').onclick();
+  assert.equal(isHidden(app, 'managePeople'), false);
+  app.element('personName').value = 'Luis';
+  app.element('personForm').onsubmit({ preventDefault() {} });
+  await flush();
+  assert.match(app.element('personList').innerHTML, /Luis/);
+  app.element('personName').value = ' ana ';
+  app.element('personForm').onsubmit({ preventDefault() {} });
+  await flush();
+  assert.match(app.element('msg').textContent, /ya está registrada/);
+  app.element('personList').onclick({ target: { dataset: { editPerson: '0' } } });
+  app.element('personName').value = 'luis';
+  app.element('personForm').onsubmit({ preventDefault() {} });
+  await flush();
+  assert.match(app.element('msg').textContent, /ya está registrada/);
+  app.element('personName').value = 'María';
+  fail = true;
+  app.element('personForm').onsubmit({ preventDefault() {} });
+  await flush();
+  assert.equal(app.element('msg').textContent, 'Sin conexión');
+  assert.match(app.element('personList').innerHTML, /Ana/);
+  fail = false;
+  app.element('personForm').onsubmit({ preventDefault() {} });
+  await flush();
+  let saved = XLSX.read(bytes);
+  assert.equal(XLSX.utils.sheet_to_json(saved.Sheets.Personas)[0].Nombre, 'María');
+  assert.equal(XLSX.utils.sheet_to_json(saved.Sheets.Pendientes)[0].Persona, 'María');
+  app.element('personList').onclick({ target: { dataset: { deletePerson: '0' } } });
+  await flush();
+  saved = XLSX.read(bytes);
+  assert.deepEqual(XLSX.utils.sheet_to_json(saved.Sheets.Personas).map((row) => row.Nombre), ['Luis']);
+  assert.equal(XLSX.utils.sheet_to_json(saved.Sheets.Pendientes)[0].Persona, 'María');
+  app.element('btnPeopleBack').onclick();
+  assert.match(app.element('byPerson').innerHTML, /María/);
 });

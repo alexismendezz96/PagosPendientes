@@ -31,6 +31,8 @@
   let personRows = [''];
   let personAmounts = [''];
   let currentView = 'summary';
+  let editingPerson = null;
+  let busy = false;
 
   // ---------- Sesión (sessionStorage: se borra al cerrar la pestaña) ----------
   function loadSession() {
@@ -105,7 +107,7 @@
   }
   function showAppView(view) {
     currentView = view;
-    for (const id of ['summary', 'newExpense', 'details']) show(id, id === view);
+    for (const id of ['summary', 'newExpense', 'details', 'managePeople']) show(id, id === view);
     showScreen({ app: true });
   }
   function showUserPhoto(picture) {
@@ -124,8 +126,10 @@
     }
   }
   async function withBusy(button, task) {
+    if (busy) return toast('Espera a que termine la operación en curso.');
+    busy = true;
     button.disabled = true;
-    try { await task(); } catch (e) { toast(e.message); } finally { button.disabled = false; }
+    try { await task(); } catch (e) { toast(e.message); } finally { button.disabled = false; busy = false; }
   }
 
   // ---------- Google Drive ----------
@@ -171,6 +175,7 @@
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(gastos, { header: ['ID', 'Fecha', 'Descripcion', 'Total'] }), 'Gastos');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pendientes, { header: ['ID', 'Persona', 'Monto', 'Estado', 'FechaCobro'] }), 'Pendientes');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(savedPeople.map((name) => ({ Nombre: name })), { header: ['Nombre'] }), 'Personas');
     return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
   }
   async function saveFile() {
@@ -186,12 +191,14 @@
     gastos = rows('Gastos');
     pendientes = rows('Pendientes');
     pendientes.forEach((p) => { p.Monto = Number(p.Monto); });
+    savedPeople = rows('Personas').map((row) => String(row.Nombre || '').trim()).filter(Boolean);
   }
 
   // Abre (o crea si no existe) el archivo configurado y muestra la app.
   async function openWorkbook(fileName) {
     requireXlsx();
-    const previous = { fileName: session.fileName, fileId: session.fileId, gastos, pendientes };
+    const previous = { fileName: session.fileName, fileId: session.fileId, gastos, pendientes, savedPeople };
+    let migrationWarning = '';
     try {
       session.fileName = fileName;
       session.fileId = await findFileId(fileName);
@@ -200,9 +207,11 @@
       } else {
         gastos = [];
         pendientes = [];
+        savedPeople = [];
         session.fileId = await createFile(fileName);
         await saveFile();
       }
+      migrationWarning = await migratePeople();
       saveSession();
     } catch (e) {
       if (session.token) {
@@ -210,14 +219,18 @@
         session.fileId = previous.fileId;
         gastos = previous.gastos;
         pendientes = previous.pendientes;
+        savedPeople = previous.savedPeople;
       }
       throw e;
     }
     workbookLoaded = true;
+    renderSavedPeople();
     render();
     showAppView('summary');
-    if (saveFilePreference(fileName)) toast('Archivo listo en Drive.', true);
+    if (migrationWarning) toast(migrationWarning);
+    else if (saveFilePreference(fileName)) toast('Archivo listo en Drive.', true);
     else toast('Archivo listo en Drive, pero no se pudo recordar en este navegador.');
+    if (migrationWarning) saveFilePreference(fileName);
   }
 
   // ---------- Autenticación (Google Identity Services) ----------
@@ -235,7 +248,6 @@
       session.email = u.email || '';
       session.name = typeof u.name === 'string' ? u.name : '';
       session.googleSub = typeof u.sub === 'string' && /^\d+$/.test(u.sub) ? u.sub : '';
-      loadSavedPeople();
       session.fileName = session.fileName || readFilePreference();
       saveSession();
       $('userEmail').textContent = session.email;
@@ -282,15 +294,36 @@
   const people = () => personRows.map((s) => s.trim()).filter(Boolean);
   const isManual = () => document.querySelector('input[name=mode]:checked').value === 'manual';
 
-  function loadSavedPeople() {
-    savedPeople = [];
-    if (!session.googleSub) { renderSavedPeople(); return; }
+  const personKey = (name) => Logic.personKey(name);
+  async function migratePeople() {
+    if (!session.googleSub) return '';
+    const key = PEOPLE_KEY_PREFIX + session.googleSub;
+    let raw;
     try {
-      const value = JSON.parse(localStorage.getItem(PEOPLE_KEY_PREFIX + session.googleSub) || '[]');
-      if (!Array.isArray(value) || value.some((name) => typeof name !== 'string')) throw new Error('Lista inválida');
-      savedPeople = value;
-    } catch (e) { toast('No se pudieron recuperar las personas guardadas.'); }
-    renderSavedPeople();
+      raw = localStorage.getItem(key);
+    } catch (e) { return 'No se pudo acceder a las personas guardadas anteriormente en el navegador.'; }
+    if (!raw) return '';
+    let legacy;
+    try { legacy = JSON.parse(raw); }
+    catch (e) { return 'No se pudo leer la lista anterior de personas; permanece en el navegador.'; }
+    if (!Array.isArray(legacy) || legacy.some((name) => typeof name !== 'string' || !name.trim())) {
+      return 'La lista anterior de personas no es válida; permanece en el navegador.';
+    }
+    const known = new Set(savedPeople.map(personKey));
+    const additions = legacy.map((name) => name.trim()).filter((name) => {
+      const keyName = personKey(name);
+      if (known.has(keyName)) return false;
+      known.add(keyName);
+      return true;
+    });
+    if (additions.length) {
+      savedPeople = [...savedPeople, ...additions];
+      try { await saveFile(); }
+      catch (e) { throw new Error('No se pudieron migrar las personas al Excel: ' + e.message); }
+    }
+    try { localStorage.removeItem(key); }
+    catch (e) { return 'Las personas se guardaron en el Excel, pero no se pudo borrar la copia del navegador.'; }
+    return '';
   }
   function renderSavedPeople() {
     $('savedPeople').innerHTML = savedPeople.map((name) => `<option value="${esc(name)}"></option>`).join('');
@@ -299,9 +332,58 @@
     $('peopleRows').innerHTML = personRows.map((name, i) =>
       `<div class="person-row"><label class="sr-only" for="person-${i}">Persona ${i + 1}</label>` +
       `<input id="person-${i}" type="text" maxlength="120" list="savedPeople" value="${esc(name)}" placeholder="Nombre de la persona" data-person="${i}">` +
+      `<label class="sr-only" for="saved-person-${i}">Seleccionar persona guardada ${i + 1}</label>` +
+      `<select id="saved-person-${i}" data-select-person="${i}"><option value="">Elegir persona guardada</option>${savedPeople.map((p) => `<option value="${esc(p)}"${p === name ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select>` +
       `<button class="btn btn-secondary btn-small" type="button" data-save-person="${i}">Guardar persona</button>` +
       (personRows.length > 1 ? `<button class="btn btn-secondary btn-icon" type="button" data-remove-person="${i}" title="Eliminar persona" aria-label="Eliminar persona">×</button>` : '') +
       '</div>').join('');
+  }
+  function renderPersonManager() {
+    $('personList').innerHTML = '<thead><tr><th>Persona</th><th>Acciones</th></tr></thead><tbody>' +
+      (savedPeople.map((name, i) => `<tr><td>${esc(name)}</td><td><div class="person-actions"><button type="button" class="btn btn-secondary btn-small" data-edit-person="${i}">Modificar</button><button type="button" class="btn btn-secondary btn-small" data-delete-person="${i}">Eliminar</button></div></td></tr>`).join('') ||
+      '<tr><td colspan="2">No hay personas guardadas.</td></tr>') + '</tbody>';
+  }
+  function resetPersonEditor() {
+    editingPerson = null;
+    $('personName').value = '';
+    $('btnPersonSave').textContent = 'Agregar persona';
+    show('btnPersonCancel', false);
+  }
+  async function savePerson(name, index = null) {
+    name = name.trim();
+    if (!name) throw new Error('Escribe el nombre de la persona.');
+    if (name.length > 120) throw new Error('El nombre es demasiado largo.');
+    if (savedPeople.some((p, i) => i !== index && personKey(p) === personKey(name))) throw new Error('La persona ya está registrada.');
+    const previousPeople = savedPeople;
+    const previousPayments = pendientes;
+    if (index === null) savedPeople = [...savedPeople, name];
+    else {
+      const original = savedPeople[index];
+      savedPeople = savedPeople.map((p, i) => i === index ? name : p);
+      pendientes = pendientes.map((p) => personKey(String(p.Persona || '')) === personKey(original) ? { ...p, Persona: name } : p);
+    }
+    try { await saveFile(); }
+    catch (e) { savedPeople = previousPeople; pendientes = previousPayments; throw e; }
+    if (index !== null && exactPerson !== null && personKey(exactPerson) === personKey(previousPeople[index])) {
+      exactPerson = name;
+      $('filterPerson').value = name;
+    }
+    renderSavedPeople();
+    renderPersonManager();
+    render();
+    toast('Persona guardada en el Excel.', true);
+  }
+  async function deletePerson(index) {
+    const name = savedPeople[index];
+    if (!window.confirm(`¿Eliminar a ${name} de las personas guardadas? Sus pagos no se eliminarán.`)) return;
+    const previous = savedPeople;
+    savedPeople = savedPeople.filter((_, i) => i !== index);
+    try { await saveFile(); }
+    catch (e) { savedPeople = previous; throw e; }
+    resetPersonEditor();
+    renderSavedPeople();
+    renderPersonManager();
+    toast('Persona eliminada de la lista guardada.', true);
   }
   function resetExpense() {
     $('desc').value = '';
@@ -367,11 +449,11 @@
   // ---------- Acciones ----------
   async function addExpense() {
     const total = Number($('total').value);
-    const names = people();
+    const names = people().map((name) => savedPeople.find((saved) => personKey(saved) === personKey(name)) || name);
     const descripcion = $('desc').value.trim();
     if (!descripcion || !(total > 0)) throw new Error('Descripción y total válido son obligatorios.');
     if (!names.length || personRows.some((name) => !name.trim())) throw new Error('Completa el nombre de cada persona.');
-    if (new Set(names.map((name) => name.toLocaleLowerCase())).size !== names.length) throw new Error('No repitas la misma persona en el gasto.');
+    if (new Set(names.map(personKey)).size !== names.length) throw new Error('No repitas la misma persona en el gasto.');
     const parts = isManual()
       ? Logic.manualSplit(total, names.map((p, i) => ({ persona: p, monto: Number(personAmounts[i] || 0) })))
       : Logic.splitEqual(total, names);
@@ -412,6 +494,7 @@
       summary: 'Volver al resumen',
       newExpense: 'Volver al nuevo pago',
       details: 'Volver a pendientes',
+      managePeople: 'Volver a personas',
     }[currentView];
     showScreen({ config: true });
   };
@@ -444,6 +527,23 @@
     catch (e) { toast('No se pudo recordar el tema en este navegador.'); }
   };
   $('btnNewExpense').onclick = () => { resetExpense(); showAppView('newExpense'); };
+  $('btnManagePeople').onclick = () => { resetPersonEditor(); renderPersonManager(); showAppView('managePeople'); };
+  $('btnPeopleBack').onclick = () => showAppView('summary');
+  $('btnPersonCancel').onclick = resetPersonEditor;
+  $('personForm').onsubmit = (ev) => {
+    ev.preventDefault();
+    withBusy($('btnPersonSave'), async () => { await savePerson($('personName').value, editingPerson); resetPersonEditor(); });
+  };
+  $('personList').onclick = (ev) => {
+    const { editPerson, deletePerson: removePerson } = ev.target.dataset;
+    if (editPerson != null) {
+      editingPerson = Number(editPerson);
+      $('personName').value = savedPeople[editingPerson];
+      $('btnPersonSave').textContent = 'Guardar cambios';
+      show('btnPersonCancel', true);
+      $('personName').focus();
+    } else if (removePerson != null) withBusy(ev.target, () => deletePerson(Number(removePerson)));
+  };
   $('btnDetailsBack').onclick = () => showAppView('summary');
   $('btnExpenseBack').onclick = () => showAppView('summary');
   $('configForm').onsubmit = (ev) => {
@@ -459,24 +559,21 @@
     personRows[Number(ev.target.dataset.person)] = ev.target.value;
     renderManual();
   };
+  $('peopleRows').onchange = (ev) => {
+    if (ev.target.dataset.selectPerson == null || !ev.target.value) return;
+    personRows[Number(ev.target.dataset.selectPerson)] = ev.target.value;
+    renderPeople();
+    renderManual();
+  };
   $('peopleRows').onclick = (ev) => {
-    const { savePerson, removePerson } = ev.target.dataset;
+    const { savePerson: saveIndex, removePerson } = ev.target.dataset;
     if (removePerson != null) {
       personRows.splice(Number(removePerson), 1);
       personAmounts.splice(Number(removePerson), 1);
       renderPeople();
       renderManual();
-    } else if (savePerson != null) {
-      const name = personRows[Number(savePerson)].trim();
-      if (!name) return toast('Escribe el nombre de la persona antes de guardarla.');
-      if (!session.googleSub) return toast('No se pudo identificar la cuenta para guardar personas.');
-      if (savedPeople.some((item) => item.toLocaleLowerCase() === name.toLocaleLowerCase())) return toast('La persona ya está guardada.');
-      const updated = [...savedPeople, name];
-      try { localStorage.setItem(PEOPLE_KEY_PREFIX + session.googleSub, JSON.stringify(updated)); }
-      catch (e) { return toast('No se pudo guardar la persona en este navegador.'); }
-      savedPeople = updated;
-      renderSavedPeople();
-      toast('Persona guardada en este navegador.', true);
+    } else if (saveIndex != null) {
+      withBusy(ev.target, async () => { await savePerson(personRows[Number(saveIndex)]); renderPeople(); });
     }
   };
   $('manual').oninput = (ev) => {
