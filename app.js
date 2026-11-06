@@ -89,7 +89,8 @@
     clearTimeout(toastTimer);
     el.textContent = text;
     el.className = 'toast' + (ok ? ' ok' : '');
-    toastTimer = setTimeout(() => el.classList.add('hidden'), TOAST_MS);
+    updateTopbarHeight();
+    toastTimer = setTimeout(() => { el.classList.add('hidden'); updateTopbarHeight(); }, TOAST_MS);
   }
   function show(id, visible) { $(id).classList.toggle('hidden', !visible); }
   function showScreen({ login = false, config = false, app = false, loading = false }) {
@@ -101,8 +102,6 @@
     show('btnSettings', !login && !loading);
     show('btnLogout', !login && !loading);
     show('btnConfigBack', config && workbookLoaded);
-    show('summaryActions', app && currentView === 'summary');
-    show('detailsActions', app && currentView === 'details');
   }
   function showAppView(view) {
     currentView = view;
@@ -317,6 +316,8 @@
     show('manual', false);
     show('expenseForm', true);
     show('expenseSaved', false);
+    show('expenseActions', true);
+    show('savedActions', false);
   }
   function renderManual() {
     $('manual').innerHTML = personRows.map((p, i) => p.trim() ?
@@ -387,6 +388,8 @@
     resetExpense();
     show('expenseForm', false);
     show('expenseSaved', true);
+    show('expenseActions', false);
+    show('savedActions', true);
     toast('Gasto guardado en Drive.', true);
   }
   async function collect(index) {
@@ -488,6 +491,11 @@
   };
 
   // ---------- Inicio ----------
+  const topbar = $('topbar');
+  const updateTopbarHeight = () => document.documentElement.style.setProperty('--topbar-height', Math.ceil(topbar.getBoundingClientRect().height) + 'px');
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(updateTopbarHeight).observe(topbar);
+  window.addEventListener('resize', updateTopbarHeight);
+  updateTopbarHeight();
   let theme;
   try { theme = localStorage.getItem(THEME_KEY); }
   catch (e) { toast('No se pudo recuperar el tema guardado en este navegador.'); }

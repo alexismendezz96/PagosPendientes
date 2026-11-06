@@ -7,13 +7,13 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://accounts.google.com; style-src 'self' https://accounts.google.com; connect-src 'self' https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com; img-src 'self' data: https://*.googleusercontent.com; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <title>Control de pagos pendientes</title>
 <link rel="icon" type="image/png" sizes="192x192" href="icons/logo-192.png">
-<link rel="manifest" href="manifest.webmanifest?v=1.2.8">
+<link rel="manifest" href="manifest.webmanifest?v=1.2.9">
 <link rel="apple-touch-icon" href="icons/logo-192.png">
-<link rel="stylesheet" href="styles.css?v=1.2.8">
-<script src="startup.js?v=1.2.8"></script>
+<link rel="stylesheet" href="styles.css?v=1.2.9">
+<script src="startup.js?v=1.2.9"></script>
 </head>
 <body>
-<header class="topbar">
+<header id="topbar" class="topbar">
   <div class="topbar-inner">
     <div id="userBox" class="user-box hidden">
       <img id="userPhoto" class="user-photo hidden" alt="" referrerpolicy="no-referrer">
@@ -27,13 +27,6 @@
     </div>
   </div>
   <div id="msg" class="toast hidden" role="status" aria-live="polite"></div>
-  <div id="summaryActions" class="view-actions hidden" aria-label="Acciones del resumen">
-    <button id="btnDetails" class="btn" type="button">Ver pendientes</button>
-    <button id="btnNewExpense" class="btn btn-secondary" type="button">Agregar nuevo pago</button>
-  </div>
-  <div id="detailsActions" class="view-actions hidden" aria-label="Acciones de pagos pendientes">
-    <button id="btnDetailsBack" class="btn btn-secondary" type="button">Volver al resumen</button>
-  </div>
 </header>
 
 <main>
@@ -43,37 +36,51 @@
   </div>
   <section id="login" class="card hero">
     <h2>Bienvenido</h2>
-    <p>Registra gastos compartidos y controla quién te debe. Tus datos se guardan en un Excel de tu propio Google Drive.</p>
-    <p id="startupError" class="startup-error hidden" role="alert">No se pudo iniciar la aplicación. Comprueba tu conexión y recarga la página.</p>
-    <button id="btnLogin" class="btn btn-google" type="button">
+    <div class="view-actions hero-actions">
+      <button id="btnLogin" class="btn btn-google" type="button">
       <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.5 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.7 6c4.5-4.2 6.9-10.3 6.9-17.7z"/><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.1 1.4-4.9 2.3-8.2 2.3-6.3 0-11.6-4-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
       Iniciar sesión con Google
-    </button>
+      </button>
+    </div>
+    <p>Registra gastos compartidos y controla quién te debe. Tus datos se guardan en un Excel de tu propio Google Drive.</p>
+    <p id="startupError" class="startup-error hidden" role="alert">No se pudo iniciar la aplicación. Comprueba tu conexión y recarga la página.</p>
   </section>
 
   <section id="config" class="card hidden">
     <h2>Configuración de la cuenta</h2>
+    <div class="view-actions">
+      <button id="btnSave" class="btn" type="submit" form="configForm">Guardar y abrir</button>
+      <button id="btnConfigBack" class="btn btn-secondary hidden" type="button">Volver al resumen</button>
+    </div>
     <p class="section-description">Elige el archivo de Excel que usarás para guardar tus gastos.</p>
     <form id="configForm" novalidate>
       <label for="fileName">Nombre del archivo Excel en Drive</label>
       <input type="text" id="fileName" maxlength="100" autocomplete="off">
       <p class="hint">Si no existe, se crea automáticamente. Solo se accede a archivos creados por esta app (permiso mínimo <em>drive.file</em>).</p>
-      <div class="actions">
-        <button id="btnSave" class="btn" type="submit">Guardar y abrir</button>
-        <button id="btnConfigBack" class="btn btn-secondary hidden" type="button">Volver al resumen</button>
-      </div>
     </form>
   </section>
 
   <section id="app" class="hidden">
     <section id="summary" class="card hidden">
       <h2>Resumen de pendientes</h2>
+      <div id="summaryActions" class="view-actions" aria-label="Acciones del resumen">
+        <button id="btnDetails" class="btn" type="button">Ver pendientes</button>
+        <button id="btnNewExpense" class="btn btn-secondary" type="button">Agregar nuevo pago</button>
+      </div>
       <p class="section-description">Consulta cuánto está pendiente por persona.</p>
       <div class="table-wrap"><table id="byPerson"></table></div>
     </section>
 
     <section id="newExpense" class="card hidden">
       <h2>Agregar nuevo pago</h2>
+      <div id="expenseActions" class="view-actions">
+        <button id="btnAdd" class="btn" type="button">Guardar gasto</button>
+        <button id="btnExpenseBack" class="btn btn-secondary" type="button">Volver al resumen</button>
+      </div>
+      <div id="savedActions" class="view-actions hidden">
+        <button id="btnAnotherExpense" class="btn" type="button">Agregar otro gasto</button>
+        <button id="btnSavedBack" class="btn btn-secondary" type="button">Volver al resumen</button>
+      </div>
       <div id="expenseForm">
       <label for="desc">Descripción</label>
       <input type="text" id="desc" maxlength="120" placeholder="Compra de almuerzo">
@@ -89,21 +96,16 @@
       <label class="choice"><input type="radio" name="mode" value="manual"> Montos manuales</label>
       <div id="manual" class="hidden"></div>
       <label class="choice"><input type="checkbox" id="cobrado"> Registrar como ya cobrado</label>
-      <div class="actions">
-        <button id="btnAdd" class="btn" type="button">Guardar gasto</button>
-        <button id="btnExpenseBack" class="btn btn-secondary" type="button">Volver al resumen</button>
-      </div>
       </div>
       <div id="expenseSaved" class="hidden" role="status">
         <p>Gasto guardado. ¿Qué deseas hacer ahora?</p>
-        <div class="actions">
-          <button id="btnAnotherExpense" class="btn" type="button">Agregar otro gasto</button>
-          <button id="btnSavedBack" class="btn btn-secondary" type="button">Volver al resumen</button>
-        </div>
       </div>
     </section>
     <section id="details" class="card hidden">
       <h2>Pagos pendientes</h2>
+      <div id="detailsActions" class="view-actions" aria-label="Acciones de pagos pendientes">
+        <button id="btnDetailsBack" class="btn btn-secondary" type="button">Volver al resumen</button>
+      </div>
       <p class="section-description">Consulta los pendientes, marca los cobros o filtra por otros estados.</p>
       <div class="filters">
         <div><label for="filterStatus">Estado</label><select id="filterStatus"><option value="Pendiente">Pendientes</option><option value="Cobrado">Cobrados</option><option value="">Todos</option></select></div>
@@ -118,14 +120,14 @@
 
 <footer class="site-footer">
   <span>Control de pagos pendientes · Creado por Alexis Mendez</span>
-  <span>Versión 1.2.8</span>
+  <span>Versión 1.2.9</span>
 </footer>
 
 <script src="vendor/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="config.js?v=1.2.8"></script>
-<script src="logic.js?v=1.2.8"></script>
-<script src="app.js?v=1.2.8"></script>
+<script src="config.js?v=1.2.9"></script>
+<script src="logic.js?v=1.2.9"></script>
+<script src="app.js?v=1.2.9"></script>
 <noscript><p class="startup-error">Activa JavaScript para usar esta aplicación.</p></noscript>
 </body>
 </html>

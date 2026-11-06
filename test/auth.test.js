@@ -17,9 +17,10 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
   const element = (id) => {
     if (!elements.has(id)) {
       const classes = new Set(['loading', 'login', 'config', 'app', 'userBox', 'userPhoto',
-        'btnConfigBack', 'summaryActions', 'detailsActions', 'summary', 'newExpense', 'details'].includes(id) ? ['hidden'] : []);
+        'btnConfigBack', 'savedActions', 'summary', 'newExpense', 'details'].includes(id) ? ['hidden'] : []);
       elements.set(id, {
         value: '', textContent: '', className: '',
+        getBoundingClientRect() { return { height: 56 }; },
         firstElementChild: { textContent: '' },
         setAttribute(name, value) { this[name] = value; },
         removeAttribute(name) { delete this[name]; },
@@ -41,10 +42,10 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
     revoke(token) { revoked = token; },
   } } };
   const context = {
-    window: { APP_CONFIG: { DEFAULT_FILE_NAME: 'PagosPendientes.xlsx', GOOGLE_CLIENT_ID: clientId }, google },
+    window: { APP_CONFIG: { DEFAULT_FILE_NAME: 'PagosPendientes.xlsx', GOOGLE_CLIENT_ID: clientId }, google, addEventListener() {} },
     google,
     document: {
-      documentElement: { dataset: {} },
+      documentElement: { dataset: {}, style: { setProperty() {} } },
       getElementById: element,
       querySelector: () => mode,
       querySelectorAll: () => [],
@@ -119,8 +120,6 @@ test('sin sesión se muestra el login y se oculta la carga', () => {
   const app = setup();
   assert.equal(isHidden(app, 'loading'), true);
   assert.equal(isHidden(app, 'login'), false);
-  assert.equal(isHidden(app, 'summaryActions'), true);
-  assert.equal(isHidden(app, 'detailsActions'), true);
 });
 
 test('mantiene la carga visible sin mostrar login mientras se restaura la sesión', async () => {
@@ -206,8 +205,6 @@ test('navega entre resumen, pagos, detalles y configuración sin mostrar seccion
     }
     assert.equal(isHidden(app, 'app'), false);
     assert.equal(isHidden(app, 'config'), true);
-    assert.equal(isHidden(app, 'summaryActions'), visible !== 'summary');
-    assert.equal(isHidden(app, 'detailsActions'), visible !== 'details');
   };
   expectView('summary');
   app.element('btnDetails').onclick();
@@ -216,7 +213,6 @@ test('navega entre resumen, pagos, detalles y configuración sin mostrar seccion
   app.element('filterStatus').value = 'Cobrado';
   app.element('btnSettings').onclick();
   assert.equal(app.element('btnConfigBack').textContent, 'Volver a pendientes');
-  assert.equal(isHidden(app, 'detailsActions'), true);
   app.element('btnSettings').onclick();
   app.element('btnConfigBack').onclick();
   expectView('details');
@@ -237,7 +233,6 @@ test('navega entre resumen, pagos, detalles y configuración sin mostrar seccion
   app.element('btnSettings').onclick();
   assert.equal(isHidden(app, 'config'), false);
   assert.equal(isHidden(app, 'app'), true);
-  assert.equal(isHidden(app, 'summaryActions'), true);
   assert.equal(isHidden(app, 'btnConfigBack'), false);
   assert.equal(app.element('btnConfigBack').textContent, 'Volver al resumen');
   app.element('btnConfigBack').onclick();
@@ -349,6 +344,8 @@ test('recuerda el archivo por cuenta y conserva el flujo de pagos y cobros', asy
   assert.match(app.element('byPerson').innerHTML, /Ana/);
   assert.equal(isHidden(app, 'expenseForm'), true);
   assert.equal(isHidden(app, 'expenseSaved'), false);
+  assert.equal(isHidden(app, 'expenseActions'), true);
+  assert.equal(isHidden(app, 'savedActions'), false);
   app.element('btnSavedBack').onclick();
   app.element('btnDetails').onclick();
   app.element('detail').onclick({ target: { dataset: { i: '0' } } });
@@ -411,6 +408,8 @@ test('guarda personas por cuenta, filtra el resumen y evita reenviar el gasto', 
   app.element('configForm').onsubmit({ preventDefault() {} });
   await flush();
   app.element('btnNewExpense').onclick();
+  assert.equal(isHidden(app, 'expenseActions'), false);
+  assert.equal(isHidden(app, 'savedActions'), true);
   app.element('peopleRows').oninput({ target: { dataset: { person: '0' }, value: 'Ana' } });
   app.element('peopleRows').onclick({ target: { dataset: { savePerson: '0' } } });
   assert.equal(app.preferences.get('pp_people_123'), '["Ana"]');

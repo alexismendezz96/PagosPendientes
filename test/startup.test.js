@@ -46,8 +46,28 @@ test('la caché contiene los mismos recursos versionados que la página', () => 
   const html = fs.readFileSync(require.resolve('../index.html'), 'utf8');
   const worker = fs.readFileSync(require.resolve('../service-worker.js'), 'utf8');
   for (const resource of ['styles.css', 'startup.js', 'config.js', 'logic.js', 'app.js', 'manifest.webmanifest']) {
-    const url = `${resource}?v=1.2.8`;
+    const url = `${resource}?v=1.2.9`;
     assert.ok(html.includes(url), url);
     assert.ok(worker.includes(`'${url}'`), url);
   }
+});
+
+test('las acciones de cada pantalla siguen a su título y preceden al contenido', () => {
+  const html = fs.readFileSync(require.resolve('../index.html'), 'utf8');
+  for (const [section, title, action, content] of [
+    ['login', 'Bienvenido', 'btnLogin', 'Registra gastos'],
+    ['config', 'Configuración de la cuenta', 'btnSave', 'Elige el archivo'],
+    ['summary', 'Resumen de pendientes', 'btnDetails', 'Consulta cuánto'],
+    ['newExpense', 'Agregar nuevo pago', 'btnAdd', 'expenseForm'],
+    ['details', 'Pagos pendientes', 'btnDetailsBack', 'Consulta los pendientes'],
+  ]) {
+    const start = html.indexOf(`<section id="${section}"`);
+    const end = html.indexOf('</section>', start);
+    const page = html.slice(start, end);
+    assert.ok(page.indexOf(title) < page.indexOf(action), section);
+    assert.ok(page.indexOf(action) < page.indexOf(content), section);
+    assert.ok(page.includes('class="view-actions'), section);
+  }
+  assert.match(html, /id="btnSave"[^>]*form="configForm"/);
+  assert.doesNotMatch(html.slice(html.indexOf('<header'), html.indexOf('</header>')), /id="(?:summaryActions|detailsActions)"/);
 });
