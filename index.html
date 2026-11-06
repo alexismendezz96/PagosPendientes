@@ -3,57 +3,76 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://accounts.google.com https://cdn.sheetjs.com; style-src 'self' https://accounts.google.com; connect-src 'self' https://www.googleapis.com; frame-src https://accounts.google.com; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <title>Pagos Pendientes</title>
-<style>
- body{font-family:system-ui,sans-serif;max-width:760px;margin:0 auto;padding:1rem;color:#222}
- section{border:1px solid #ddd;border-radius:8px;padding:1rem;margin:1rem 0}
- label{display:block;margin:.5rem 0 .2rem}
- input,select,button{font:inherit;padding:.4rem;margin:.1rem 0}
- input[type=text],input[type=number],input[type=date]{width:100%;box-sizing:border-box}
- table{border-collapse:collapse;width:100%} td,th{border-bottom:1px solid #eee;padding:.3rem;text-align:left}
- .row{display:flex;gap:.5rem}.hidden{display:none}#msg{color:#b00}.ok{color:#080!important}
-</style>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<h1>Pagos Pendientes</h1>
-<p id="msg"></p>
-
-<section id="login">
-  <button id="btnLogin">Iniciar sesión con Google</button>
-  <span id="user"></span>
-</section>
-
-<section id="config" class="hidden">
-  <h2>Configuración</h2>
-  <label>Google OAuth Client ID <input type="text" id="clientId" placeholder="xxxx.apps.googleusercontent.com"></label>
-  <label>Archivo Excel en Drive (enlace o ID) <input type="text" id="fileRef" placeholder="https://drive.google.com/file/d/ID/view"></label>
-  <button id="btnSave">Guardar y asociar archivo</button>
-  <button id="btnCreate">Crear archivo nuevo en Drive</button>
-  <p><small>Permisos solicitados: Drive (leer/escribir el archivo Excel) y perfil básico.</small></p>
-</section>
-
-<section id="app" class="hidden">
-  <h2>Nuevo gasto</h2>
-  <label>Descripción <input type="text" id="desc" placeholder="Compra de almuerzo"></label>
-  <div class="row">
-    <div><label>Total <input type="number" id="total" step="0.01" min="0"></label></div>
-    <div><label>Fecha <input type="date" id="fecha"></label></div>
+<header class="topbar">
+  <div class="topbar-inner">
+    <h1>💸 Pagos Pendientes</h1>
+    <div id="userBox" class="user-box hidden">
+      <span id="userEmail"></span>
+      <button id="btnLogout" class="btn btn-secondary btn-small" type="button">Cerrar sesión</button>
+    </div>
   </div>
-  <label>Personas (separadas por coma) <input type="text" id="people" placeholder="Ana, Luis, Pedro"></label>
-  <label><input type="radio" name="mode" value="equal" checked> Dividir uniformemente</label>
-  <label><input type="radio" name="mode" value="manual"> Montos manuales</label>
-  <div id="manual" class="hidden"></div>
-  <label><input type="checkbox" id="cobrado"> Registrar como ya cobrado</label>
-  <button id="btnAdd">Guardar gasto</button>
+</header>
 
-  <h2>Pendiente por persona</h2>
-  <table id="byPerson"></table>
-  <h2>Detalle</h2>
-  <table id="detail"></table>
-</section>
+<main>
+  <section id="login" class="card hero">
+    <h2>Bienvenido</h2>
+    <p>Registra gastos compartidos y controla quién te debe. Tus datos se guardan en un Excel de tu propio Google Drive.</p>
+    <button id="btnLogin" class="btn btn-google" type="button">
+      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.5 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.7 6c4.5-4.2 6.9-10.3 6.9-17.7z"/><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.1 1.4-4.9 2.3-8.2 2.3-6.3 0-11.6-4-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+      Iniciar sesión con Google
+    </button>
+  </section>
 
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="https://accounts.google.com/gsi/client"></script>
+  <section id="config" class="card hidden">
+    <h2>Configuración</h2>
+    <form id="configForm" novalidate>
+      <label for="fileName">Nombre del archivo Excel en Drive</label>
+      <input type="text" id="fileName" maxlength="100" autocomplete="off">
+      <p class="hint">Si no existe, se crea automáticamente. Solo se accede a archivos creados por esta app (permiso mínimo <em>drive.file</em>).</p>
+      <button id="btnSave" class="btn" type="submit">Guardar y abrir</button>
+    </form>
+  </section>
+
+  <section id="app" class="hidden">
+    <div class="card">
+      <h2>Nuevo gasto</h2>
+      <label for="desc">Descripción</label>
+      <input type="text" id="desc" maxlength="120" placeholder="Compra de almuerzo">
+      <div class="row">
+        <div><label for="total">Total</label><input type="number" id="total" step="0.01" min="0"></div>
+        <div><label for="fecha">Fecha</label><input type="date" id="fecha"></div>
+      </div>
+      <label for="people">Personas (separadas por coma)</label>
+      <input type="text" id="people" maxlength="300" placeholder="Ana, Luis, Pedro">
+      <label class="choice"><input type="radio" name="mode" value="equal" checked> Dividir uniformemente</label>
+      <label class="choice"><input type="radio" name="mode" value="manual"> Montos manuales</label>
+      <div id="manual" class="hidden"></div>
+      <label class="choice"><input type="checkbox" id="cobrado"> Registrar como ya cobrado</label>
+      <button id="btnAdd" class="btn" type="button">Guardar gasto</button>
+    </div>
+
+    <div class="card">
+      <h2>Pendiente por persona</h2>
+      <div class="table-wrap"><table id="byPerson"></table></div>
+    </div>
+    <div class="card">
+      <h2>Detalle</h2>
+      <div class="table-wrap"><table id="detail"></table></div>
+    </div>
+  </section>
+</main>
+
+<div id="msg" class="toast hidden" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb" crossorigin="anonymous"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="config.js"></script>
 <script src="logic.js"></script>
 <script src="app.js"></script>
 </body>
