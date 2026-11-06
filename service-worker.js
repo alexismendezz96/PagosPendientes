@@ -1,9 +1,9 @@
 'use strict';
 
-const CACHE = 'pagos-shell-v6';
-const SHELL = ['./', 'index.html', 'styles.css?v=1.2.5', 'startup.js?v=1.2.5',
-  'config.js?v=1.2.5', 'logic.js?v=1.2.5', 'app.js?v=1.2.5',
-  'manifest.webmanifest?v=1.2.5', 'icons/logo-192.png', 'icons/logo-512.png',
+const CACHE = 'pagos-shell-v7';
+const SHELL = ['./', 'index.html', 'styles.css?v=1.2.6', 'startup.js?v=1.2.6',
+  'config.js?v=1.2.6', 'logic.js?v=1.2.6', 'app.js?v=1.2.6',
+  'manifest.webmanifest?v=1.2.6', 'icons/logo-192.png', 'icons/logo-512.png',
   'vendor/xlsx.full.min.js'];
 
 self.addEventListener('install', (event) => {

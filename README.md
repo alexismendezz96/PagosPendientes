@@ -14,6 +14,8 @@ El ID de cliente OAuth es público y se define en `config.js`; los usuarios no l
 
 La ventana de pagos pendientes muestra pendientes por defecto; puedes filtrar por estado, rango de fechas del gasto y nombre de persona. El botón de tema permite alternar entre claro y oscuro; la elección se recuerda en el navegador.
 
+Las acciones del resumen permanecen visibles en la barra superior al desplazarse por el listado.
+
 Al registrar un gasto, agrega un campo por persona. **Guardar persona** añade el nombre a las sugerencias para próximos gastos en ese navegador y cuenta de Google; no se sincroniza con otros dispositivos. Después de guardar el gasto, elige entre volver al resumen o agregar otro registro con el formulario limpio.
 
 La instalación es opcional desde el menú del navegador compatible (por ejemplo, **Instalar aplicación** en Chrome); la aplicación no muestra un aviso ni botón de instalación. Para ello debe publicarse mediante HTTPS o abrirse en localhost. La interfaz se adapta a pantallas móviles. La instalación conserva los archivos de la interfaz para facilitar la apertura, pero iniciar sesión y consultar o guardar pagos requiere conexión a Google y Drive; los datos de pagos no se almacenan para uso sin conexión.

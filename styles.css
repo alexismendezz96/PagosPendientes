@@ -22,6 +22,8 @@ body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, san
 .user-info strong, .user-info span { overflow-wrap: anywhere; }
 .user-info strong { color: var(--text); }
 .topbar-actions { display: flex; order: 2; gap: .35rem; flex-shrink: 0; }
+.summary-actions { max-width: 860px; margin: 0 auto; padding: 0 1rem .75rem; display: flex; flex-wrap: wrap; gap: .75rem; }
+.summary-actions .btn { margin-top: 0; }
 .user-photo { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: var(--bg); }
 main { max-width: 860px; min-height: calc(100vh - 116px); margin: 0 auto; padding: 1rem; }
 .site-footer { max-width: 860px; margin: 0 auto; padding: 1rem; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--border); }
@@ -77,6 +79,8 @@ tbody tr { transition: background .15s; } tbody tr:hover { background: var(--hov
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 600px) {
   .topbar-inner { gap: .5rem; padding: .5rem; }
+  .summary-actions { padding: 0 .5rem .5rem; gap: .5rem; }
+  .summary-actions .btn { flex: 1 1 130px; }
   .toast { margin: 0 .5rem .5rem; }
   .topbar h1 { font-size: .9rem; }
   .user-box:not(.hidden) + h1 span { display: none; }
