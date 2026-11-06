@@ -15,6 +15,8 @@ main { max-width: 860px; min-height: calc(100vh - 116px); margin: 0 auto; paddin
 .card h2 { margin: 0 0 .75rem; font-size: 1.05rem; }
 .hero { text-align: center; padding: 2.5rem 1.25rem; }
 .hero p { color: var(--muted); max-width: 420px; margin: .5rem auto 1.5rem; }
+.loading p { margin: .75rem auto 0; }
+.spinner { display: inline-block; width: 2rem; height: 2rem; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
 label { display: block; font-size: .875rem; font-weight: 500; margin: .75rem 0 .25rem; }
 input[type=text], input[type=number], input[type=date] {
   width: 100%; font: inherit; padding: .6rem .75rem; border: 1px solid var(--border); border-radius: 8px; background: #fff;
@@ -44,4 +46,5 @@ tbody tr { transition: background .15s; } tbody tr:hover { background: #f9fafb; 
 .toast.ok { background: var(--ok); }
 .hidden { display: none !important; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

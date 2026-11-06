@@ -21,7 +21,11 @@
 </header>
 
 <main>
-  <section id="login" class="card hero">
+  <div id="loading" class="card hero loading" role="status" aria-live="polite">
+    <span class="spinner" aria-hidden="true"></span>
+    <p>Preparando tu sesión...</p>
+  </div>
+  <section id="login" class="card hero hidden">
     <h2>Bienvenido</h2>
     <p>Registra gastos compartidos y controla quién te debe. Tus datos se guardan en un Excel de tu propio Google Drive.</p>
     <button id="btnLogin" class="btn btn-google" type="button">
@@ -71,7 +75,7 @@
 
 <footer class="site-footer">
   <span>Pagos Pendientes</span>
-  <span>Versión 1.0.3</span>
+  <span>Versión 1.0.4</span>
 </footer>
 
 <div id="msg" class="toast hidden" role="status" aria-live="polite"></div>

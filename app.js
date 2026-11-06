@@ -45,11 +45,12 @@
     toastTimer = setTimeout(() => el.classList.add('hidden'), TOAST_MS);
   }
   function show(id, visible) { $(id).classList.toggle('hidden', !visible); }
-  function showScreen({ login = false, config = false, app = false }) {
+  function showScreen({ login = false, config = false, app = false, loading = false }) {
+    show('loading', loading);
     show('login', login);
     show('config', config);
     show('app', app);
-    show('userBox', !login);
+    show('userBox', !login && !loading);
   }
   async function withBusy(button, task) {
     button.disabled = true;
@@ -130,8 +131,8 @@
       await saveFile();
     }
     saveSession();
-    showScreen({ app: true });
     render();
+    showScreen({ app: true });
     toast('Archivo listo en Drive.', true);
   }
 
@@ -143,15 +144,21 @@
     return enterAfterLogin();
   }
   async function enterAfterLogin() {
+    let accountLoaded = false;
+    showScreen({ loading: true });
     try {
       const u = await (await api('https://www.googleapis.com/oauth2/v3/userinfo')).json();
       session.email = u.email || '';
       saveSession();
       $('userEmail').textContent = session.email;
       $('fileName').value = session.fileName || DEFAULT_FILE_NAME;
-      showScreen({ config: true });
+      accountLoaded = true;
       if (session.fileName) await openWorkbook(session.fileName);
-    } catch (e) { toast(e.message); }
+      else showScreen({ config: true });
+    } catch (e) {
+      showScreen(session.token && accountLoaded ? { config: true } : { login: true });
+      toast(e.message);
+    }
   }
   function onPopupError(error) {
     if (error && error.type === 'popup_failed_to_open') {
