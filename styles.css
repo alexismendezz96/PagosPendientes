@@ -32,6 +32,7 @@ main { max-width: 860px; min-height: calc(100vh - 116px); margin: 0 auto; paddin
 .actions .btn { margin-top: 0; }
 .hero { text-align: center; padding: 2.5rem 1.25rem; }
 .hero p { color: var(--muted); max-width: 420px; margin: .5rem auto 1.5rem; }
+.hero .startup-error, .startup-error { color: var(--err); }
 .loading p { margin: .75rem auto 0; }
 .spinner { display: inline-block; width: 2rem; height: 2rem; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
 label { display: block; font-size: .875rem; font-weight: 500; margin: .75rem 0 .25rem; }

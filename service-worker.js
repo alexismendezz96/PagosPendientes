@@ -1,18 +1,19 @@
 'use strict';
 
-const CACHE = 'pagos-shell-v2';
-const SHELL = ['./', 'index.html', 'styles.css', 'config.js', 'logic.js', 'app.js',
-  'manifest.webmanifest', 'icons/logo-192.png', 'icons/logo-512.png',
+const CACHE = 'pagos-shell-v3';
+const SHELL = ['./', 'index.html', 'styles.css?v=1.2.2', 'startup.js?v=1.2.2',
+  'config.js?v=1.2.2', 'logic.js?v=1.2.2', 'app.js?v=1.2.2',
+  'manifest.webmanifest?v=1.2.2', 'icons/logo-192.png', 'icons/logo-512.png',
   'vendor/xlsx.full.min.js'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(caches.keys().then((keys) => Promise.all(
     keys.filter((key) => key.startsWith('pagos-shell-') && key !== CACHE).map((key) => caches.delete(key))
-  )));
+  )).then(() => self.clients.claim()));
 });
 
 self.addEventListener('fetch', (event) => {

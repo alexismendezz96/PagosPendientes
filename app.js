@@ -483,4 +483,5 @@
   }
   if (session.token) enterAfterLogin();
   else showScreen({ login: true });
+  window.appReady = true;
 })();

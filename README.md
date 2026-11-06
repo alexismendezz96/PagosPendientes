@@ -16,7 +16,7 @@ El detalle muestra pendientes por defecto; puedes filtrar por estado, rango de f
 
 Al registrar un gasto, agrega un campo por persona. **Guardar persona** añade el nombre a las sugerencias para próximos gastos en ese navegador y cuenta de Google; no se sincroniza con otros dispositivos. Después de guardar el gasto, elige entre volver al resumen o agregar otro registro con el formulario limpio.
 
-La aplicación se puede instalar desde el menú del navegador compatible (por ejemplo, **Instalar aplicación** en Chrome). Para ello debe publicarse mediante HTTPS o abrirse en localhost. La interfaz se adapta a pantallas móviles. La instalación conserva los archivos de la interfaz para facilitar la apertura, pero iniciar sesión y consultar o guardar pagos requiere conexión a Google y Drive; los datos de pagos no se almacenan para uso sin conexión.
+La instalación es opcional desde el menú del navegador compatible (por ejemplo, **Instalar aplicación** en Chrome); la aplicación no muestra un aviso ni botón de instalación. Para ello debe publicarse mediante HTTPS o abrirse en localhost. La interfaz se adapta a pantallas móviles. La instalación conserva los archivos de la interfaz para facilitar la apertura, pero iniciar sesión y consultar o guardar pagos requiere conexión a Google y Drive; los datos de pagos no se almacenan para uso sin conexión.
 
 La foto y el nombre de perfil de Google se muestran cuando están disponibles, junto con el correo.
 El nombre del archivo se recuerda en el navegador para cada cuenta de Google. Al iniciar sesión nuevamente en ese navegador se abre el resumen; en otro navegador o si se borran los datos del sitio hay que configurar el archivo otra vez.
