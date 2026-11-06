@@ -324,7 +324,7 @@
   function render() {
     const by = Logic.pendingByPerson(pendientes);
     $('byPerson').innerHTML = '<thead><tr><th>Persona</th><th>Pendiente</th></tr></thead><tbody>' +
-      (Object.entries(by).map(([p, m], i) => `<tr><td><button class="person-link" type="button" data-person-index="${i}">${esc(p)}</button></td><td>${m.toFixed(2)}</td></tr>`).join('') ||
+      (Object.entries(by).map(([p, m], i) => `<tr class="person-row-link" role="link" tabindex="0" data-person-index="${i}" aria-label="Ver pendientes de ${esc(p)}"><td>${esc(p)}</td><td>${m.toFixed(2)}</td></tr>`).join('') ||
         '<tr><td colspan="2">Sin pendientes 🎉</td></tr>') + '</tbody>';
     renderDetails();
   }
@@ -405,11 +405,19 @@
   };
   $('btnConfigBack').onclick = () => { if (workbookLoaded) showAppView('summary'); };
   $('btnDetails').onclick = () => openDetails();
-  $('byPerson').onclick = (ev) => {
-    const button = ev.target.closest('[data-person-index]');
-    if (!button) return;
-    const person = Object.keys(Logic.pendingByPerson(pendientes))[Number(button.dataset.personIndex)];
+  function openPersonDetails(target) {
+    const row = target.closest('[data-person-index]');
+    if (!row) return;
+    const person = Object.keys(Logic.pendingByPerson(pendientes))[Number(row.dataset.personIndex)];
     if (person !== undefined) openDetails(person);
+  }
+  $('byPerson').onclick = (ev) => openPersonDetails(ev.target);
+  $('byPerson').onkeydown = (ev) => {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    const row = ev.target.closest('[data-person-index]');
+    if (!row) return;
+    ev.preventDefault();
+    openPersonDetails(row);
   };
   ['filterStatus', 'filterFrom', 'filterTo', 'filterPerson'].forEach((id) => {
     $(id).oninput = () => {
