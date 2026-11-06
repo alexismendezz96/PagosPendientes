@@ -7,10 +7,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://accounts.google.com; style-src 'self' https://accounts.google.com; connect-src 'self' https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com; img-src 'self' data: https://*.googleusercontent.com; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <title>Control de pagos pendientes</title>
 <link rel="icon" type="image/png" sizes="192x192" href="icons/logo-192.png">
-<link rel="manifest" href="manifest.webmanifest?v=1.5.5">
+<link rel="manifest" href="manifest.webmanifest?v=1.5.6">
 <link rel="apple-touch-icon" href="icons/logo-192.png">
-<link rel="stylesheet" href="styles.css?v=1.5.5">
-<script src="startup.js?v=1.5.5"></script>
+<link rel="stylesheet" href="styles.css?v=1.5.6">
+<script src="startup.js?v=1.5.6"></script>
 </head>
 <body>
 <header id="topbar" class="topbar">
@@ -134,9 +134,11 @@
       <h2>Pagos pendientes</h2>
       <div id="detailsActions" class="view-actions" aria-label="Acciones de pagos pendientes">
         <button id="btnDetailsBack" class="btn btn-secondary" type="button">Volver al resumen</button>
+        <button id="btnToggleFilters" class="btn btn-secondary" type="button" aria-expanded="false" aria-controls="paymentFilters">Mostrar filtros</button>
       </div>
       <p class="section-description">Consulta los pendientes, marca los cobros o filtra por otros estados. <strong>Total mostrado: <span id="detailTotal">0.00</span></strong></p>
-      <div class="filters">
+      <p id="filterSummary" class="filter-summary" aria-live="polite"></p>
+      <div id="paymentFilters" class="filters hidden">
         <div><label for="filterStatus">Estado</label><select id="filterStatus" autocomplete="off"><option value="Pendiente">Pendientes</option><option value="Cobrado">Cobrados</option><option value="">Todos</option></select></div>
         <div><label for="filterFrom">Fecha del gasto desde</label><input id="filterFrom" type="date" autocomplete="off"></div>
         <div><label for="filterTo">Fecha del gasto hasta</label><input id="filterTo" type="date" autocomplete="off"></div>
@@ -157,14 +159,14 @@
 
 <footer class="site-footer">
   <span>Control de pagos pendientes · Creado por Alexis Mendez</span>
-  <span>Versión 1.5.5</span>
+  <span>Versión 1.5.6</span>
 </footer>
 
 <script src="vendor/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="config.js?v=1.5.5"></script>
-<script src="logic.js?v=1.5.5"></script>
-<script src="app.js?v=1.5.5"></script>
+<script src="config.js?v=1.5.6"></script>
+<script src="logic.js?v=1.5.6"></script>
+<script src="app.js?v=1.5.6"></script>
 <noscript><p class="startup-error">Activa JavaScript para usar esta aplicación.</p></noscript>
 </body>
 </html>

@@ -46,7 +46,7 @@ test('la caché contiene los mismos recursos versionados que la página', () => 
   const html = fs.readFileSync(require.resolve('../index.html'), 'utf8');
   const worker = fs.readFileSync(require.resolve('../service-worker.js'), 'utf8');
   for (const resource of ['styles.css', 'startup.js', 'config.js', 'logic.js', 'app.js', 'manifest.webmanifest']) {
-    const url = `${resource}?v=1.5.5`;
+    const url = `${resource}?v=1.5.6`;
     assert.ok(html.includes(url), url);
     assert.ok(worker.includes(`'${url}'`), url);
   }
@@ -77,6 +77,13 @@ test('el filtro de persona usa las sugerencias del Excel', () => {
     assert.match(html, new RegExp(`id="${id}"[^>]*autocomplete="off"`), id);
   }
   assert.match(html, /id="filterStatus" autocomplete="off"/);
+});
+
+test('el panel de filtros comienza oculto y el botón indica su estado accesible', () => {
+  const html = fs.readFileSync(require.resolve('../index.html'), 'utf8');
+  assert.match(html, /id="btnToggleFilters"[^>]*aria-expanded="false"[^>]*aria-controls="paymentFilters"[^>]*>Mostrar filtros<\/button>/);
+  assert.match(html, /id="paymentFilters" class="filters hidden"/);
+  assert.match(html, /id="filterSummary"[^>]*aria-live="polite"/);
 });
 
 test('el texto predeterminado aparece solo cuando no hay notificación', () => {

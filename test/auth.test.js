@@ -18,7 +18,7 @@ function setup(initialSession, fetch = async () => ({ ok: true, json: async () =
   const element = (id) => {
     if (!elements.has(id)) {
       const classes = new Set(['loading', 'login', 'config', 'app', 'userBox', 'userPhoto',
-        'btnConfigBack', 'savedActions', 'summary', 'newExpense', 'details', 'managePeople'].includes(id) ? ['hidden'] : []);
+        'btnConfigBack', 'savedActions', 'summary', 'newExpense', 'details', 'managePeople', 'paymentFilters'].includes(id) ? ['hidden'] : []);
       elements.set(id, {
         value: '', textContent: '', className: '', checked: false,
         getBoundingClientRect() { return { height: 56 }; },
@@ -217,8 +217,23 @@ test('navega entre resumen, pagos, detalles y configuración sin mostrar seccion
   expectView('summary');
   app.element('btnDetails').onclick();
   expectView('details');
+  assert.equal(isHidden(app, 'paymentFilters'), true);
+  assert.equal(app.element('btnToggleFilters')['aria-expanded'], 'false');
+  assert.equal(app.element('btnToggleFilters').textContent, 'Mostrar filtros');
+  app.element('btnToggleFilters').onclick();
+  assert.equal(isHidden(app, 'paymentFilters'), false);
+  assert.equal(app.element('btnToggleFilters')['aria-expanded'], 'true');
+  assert.equal(app.element('btnToggleFilters').textContent, 'Ocultar filtros');
   app.element('filterPerson').value = 'Ana';
   app.element('filterStatus').value = 'Cobrado';
+  app.element('filterFrom').value = '2026-01-01';
+  app.element('filterStatus').oninput();
+  assert.match(app.element('filterSummary').textContent, /Estado: Cobrado · Persona: Ana · Gasto desde: 2026-01-01/);
+  app.element('btnToggleFilters').onclick();
+  assert.equal(isHidden(app, 'paymentFilters'), true);
+  assert.equal(app.element('filterPerson').value, 'Ana');
+  assert.equal(app.element('filterStatus').value, 'Cobrado');
+  assert.equal(app.element('filterFrom').value, '2026-01-01');
   app.element('btnSettings').onclick();
   assert.equal(app.element('btnConfigBack').textContent, 'Volver a pendientes');
   app.element('btnSettings').onclick();
@@ -455,11 +470,17 @@ test('guarda personas por cuenta, filtra el resumen y evita reenviar el gasto', 
   assert.match(app.element('byPerson').innerHTML, /class="person-row-link" role="link" tabindex="0"/);
   app.element('byPerson').onclick({ target: { closest: () => ({ dataset: { personIndex: '0' } }) } });
   assert.equal(app.element('filterPerson').value, 'Ana');
+  assert.equal(isHidden(app, 'paymentFilters'), true);
+  assert.equal(app.element('filterSummary').textContent, 'Filtros: Estado: Pendiente · Persona: Ana');
   assert.match(app.element('detail').innerHTML, /Ana/);
   assert.doesNotMatch(app.element('detail').innerHTML, /Ana María/);
   assert.equal(app.element('detailTotal').textContent, '5.00');
   app.element('filterPerson').oninput();
   assert.match(app.element('detail').innerHTML, /Ana María/);
+  app.element('btnToggleFilters').onclick();
+  app.element('btnToggleFilters').onclick();
+  assert.match(app.element('detail').innerHTML, /Ana María/);
+  assert.equal(app.element('filterPerson').value, 'Ana');
   app.element('filterPerson').value = 'MARÍA';
   app.element('filterPerson').oninput();
   assert.match(app.element('detail').innerHTML, /Ana María/);

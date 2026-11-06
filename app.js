@@ -578,6 +578,13 @@
     const filters = { status: $('filterStatus').value, from: $('filterFrom').value, to: $('filterTo').value,
       collectedFrom: $('filterCollectedFrom').value, collectedTo: $('filterCollectedTo').value,
       person: $('filterPerson').value, exactPerson };
+    const filterSummary = [`Estado: ${filters.status || 'Todos'}`];
+    if (filters.person.trim()) filterSummary.push(`Persona: ${filters.person.trim()}`);
+    if (filters.from) filterSummary.push(`Gasto desde: ${filters.from}`);
+    if (filters.to) filterSummary.push(`Gasto hasta: ${filters.to}`);
+    if (filters.collectedFrom) filterSummary.push(`Cobro desde: ${filters.collectedFrom}`);
+    if (filters.collectedTo) filterSummary.push(`Cobro hasta: ${filters.collectedTo}`);
+    $('filterSummary').textContent = `Filtros: ${filterSummary.join(' · ')}`;
     const rows = Logic.sortPaymentRows(pendientes.map((p, i) => ({ p, i, gasto: gastoById[p.ID] || {} }))
       .filter(({ p, gasto }) => Logic.matchesPayment(p, gasto, filters)), $('sortPayments').value);
     $('detailTotal').textContent = rows.reduce((sum, { p }) => Logic.round2(sum + Number(p.Monto)), 0).toFixed(2);
@@ -597,6 +604,11 @@
           `<td>${Number(p.Monto).toFixed(2)}</td><td>${badge(p.Estado)}${old ? ' <span class="badge badge-old">Al menos 1 mes pendiente</span>' : ''}</td><td>${esc(p.FechaCobro || '')}</td><td>${action}</td></tr>`;
       }).join('') || '<tr><td colspan="7">No hay pagos que coincidan con los filtros.</td></tr>') + '</tbody>';
   }
+  function setFiltersVisible(visible) {
+    show('paymentFilters', visible);
+    $('btnToggleFilters').setAttribute('aria-expanded', String(visible));
+    $('btnToggleFilters').textContent = visible ? 'Ocultar filtros' : 'Mostrar filtros';
+  }
   function openDetails(person = null) {
     detailPage = 0;
     $('filterStatus').value = 'Pendiente';
@@ -606,6 +618,7 @@
     $('filterCollectedTo').value = '';
     $('filterPerson').value = person || '';
     exactPerson = person;
+    setFiltersVisible(false);
     renderDetails();
     showAppView('details');
   }
@@ -736,6 +749,7 @@
   $('btnCleanup').onclick = () => withBusy($('btnCleanup'), cleanupCollected);
   $('btnResetWorkbook').onclick = () => withBusy($('btnResetWorkbook'), resetWorkbook);
   $('btnDetails').onclick = () => openDetails();
+  $('btnToggleFilters').onclick = () => setFiltersVisible($('paymentFilters').classList.contains('hidden'));
   function openPersonDetails(target) {
     const row = target.closest('[data-person-index]');
     if (!row) return;
