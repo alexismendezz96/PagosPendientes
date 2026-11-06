@@ -3,6 +3,34 @@
   else root.Logic = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+  const personKey = (name) => String(name || '').trim().normalize('NFC').toLowerCase();
+
+  function monthsBefore(date, months) {
+    const year = date.getFullYear();
+    const month = date.getMonth() - months;
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const cutoff = new Date(year, month, Math.min(date.getDate(), lastDay));
+    return [cutoff.getFullYear(), String(cutoff.getMonth() + 1).padStart(2, '0'), String(cutoff.getDate()).padStart(2, '0')].join('-');
+  }
+
+  const threeMonthsBefore = (date) => monthsBefore(date, 3);
+
+  function validIsoDate(value) {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(0);
+    date.setUTCHours(0, 0, 0, 0);
+    date.setUTCFullYear(year, month - 1, day);
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  }
+
+  function oldCollected(payment, cutoff) {
+    return payment.Estado === 'Cobrado' && validIsoDate(payment.FechaCobro) && payment.FechaCobro < cutoff;
+  }
+
+  function oldPending(payment, expense, cutoff) {
+    return payment.Estado === 'Pendiente' && validIsoDate(expense.Fecha) && expense.Fecha <= cutoff;
+  }
 
   // Divide el total en partes iguales (en centavos) entre las personas; el resto se reparte de a 1 centavo.
   function splitEqual(total, people) {
@@ -41,21 +69,60 @@
 
   // Total pendiente por persona.
   function pendingByPerson(pendientes) {
-    const out = {};
+    const names = new Map();
     pendientes.forEach((r) => {
-      if (r.Estado === 'Pendiente') out[r.Persona] = round2((out[r.Persona] || 0) + Number(r.Monto));
+      if (r.Estado !== 'Pendiente') return;
+      const key = personKey(r.Persona);
+      const item = names.get(key) || { name: String(r.Persona).trim(), total: 0 };
+      item.total = round2(item.total + Number(r.Monto));
+      names.set(key, item);
     });
-    return out;
+    return Object.fromEntries([...names.values()].map(({ name, total }) => [name, total]));
   }
 
   function markCollected(pendientes, id, persona, fecha) {
     pendientes.forEach((r) => {
-      if (r.ID === id && (persona == null || r.Persona === persona) && r.Estado === 'Pendiente') {
+      if (r.ID === id && (persona == null || personKey(r.Persona) === personKey(persona)) && r.Estado === 'Pendiente') {
         r.Estado = 'Cobrado';
         r.FechaCobro = fecha;
       }
     });
   }
 
-  return { splitEqual, manualSplit, buildExpense, pendingByPerson, markCollected, round2 };
+  function matchesPayment(payment, expense, { status, from, to, collectedFrom, collectedTo, person, exactPerson }) {
+    const date = String(expense.Fecha || '');
+    const collected = String(payment.FechaCobro || '');
+    const name = String(payment.Persona || '');
+    const query = personKey(person);
+    return (!status || payment.Estado === status) &&
+      (!from || (!!date && date >= from)) && (!to || (!!date && date <= to)) &&
+      (!(collectedFrom || collectedTo) || (validIsoDate(collected) &&
+        (!collectedFrom || collected >= collectedFrom) && (!collectedTo || collected <= collectedTo))) &&
+      (exactPerson !== null ? personKey(name) === personKey(exactPerson) : personKey(name).includes(query));
+  }
+
+  const paymentSortOptions = ['date-asc', 'date-desc', 'amount-desc', 'amount-asc', 'person-asc', 'person-desc'];
+  const personCollator = new Intl.Collator('es', { sensitivity: 'base' });
+  function sortPaymentRows(rows, order) {
+    const sort = paymentSortOptions.includes(order) ? order : 'date-asc';
+    const compare = (a, b) => {
+      if (sort.startsWith('date-')) {
+        const first = a.gasto.Fecha, second = b.gasto.Fecha;
+        const firstValid = validIsoDate(first), secondValid = validIsoDate(second);
+        if (firstValid !== secondValid) return firstValid ? -1 : 1;
+        if (!firstValid) return 0;
+        return (first < second ? -1 : first > second ? 1 : 0) * (sort === 'date-desc' ? -1 : 1);
+      }
+      if (sort.startsWith('amount-')) {
+        const first = Number(a.p.Monto), second = Number(b.p.Monto);
+        if (Number.isFinite(first) !== Number.isFinite(second)) return Number.isFinite(first) ? -1 : 1;
+        if (!Number.isFinite(first)) return 0;
+        return (first - second) * (sort === 'amount-desc' ? -1 : 1);
+      }
+      return personCollator.compare(personKey(a.p.Persona), personKey(b.p.Persona)) * (sort === 'person-desc' ? -1 : 1);
+    };
+    return [...rows].sort((a, b) => compare(a, b) || a.i - b.i);
+  }
+
+  return { splitEqual, manualSplit, buildExpense, pendingByPerson, markCollected, matchesPayment, round2, personKey, monthsBefore, threeMonthsBefore, oldCollected, oldPending, paymentSortOptions, sortPaymentRows };
 });
