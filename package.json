@@ -1,1 +1,1 @@
-{ "name": "pagos-pendientes", "version": "1.0.0", "private": true, "scripts": { "test": "node --test test/*.test.js" } }
+{"name":"pagos-pendientes","version":"1.0.0","private":true,"scripts":{"test":"node --test test/*.test.js"},"dependencies":{"@e965/xlsx":"0.20.3"}}

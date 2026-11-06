@@ -14,6 +14,7 @@ El ID de cliente OAuth es público y se define en `config.js`; los usuarios no l
 ## Seguridad
 - Permiso mínimo de Drive (`drive.file`): solo archivos creados por la app.
 - Token y datos de sesión se guardan en `sessionStorage` (accesible a los scripts de la página y borrado al cerrar la pestaña); al cerrar sesión se revoca el token.
-- CSP, SRI para SheetJS, escape de HTML en todo dato renderizado y escape de consultas a Drive.
+- SheetJS 0.20.3 se sirve desde el repositorio con SRI; la app no depende de un CDN para procesar Excel.
+- CSP, escape de HTML en todo dato renderizado y escape de consultas a Drive.
 
 Pruebas de la lógica: `npm test`.
