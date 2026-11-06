@@ -1,4 +1,4 @@
-# PagosPendientes
+# Control de pagos pendientes
 Aplicación web estática para registrar gastos pendientes de cobrar. Inicia sesión con Google (ventana estándar de Google) y guarda los datos en un Excel (`.xlsx`, hojas `Gastos` y `Pendientes`) en tu Drive.
 
 La versión visible de la aplicación usa el formato `MAJOR.MINOR.PATCH`, comenzando en `1.0.0`: incrementa PATCH para correcciones pequeñas, MINOR para funcionalidades compatibles y MAJOR para cambios incompatibles.
